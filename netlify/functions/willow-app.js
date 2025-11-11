@@ -147,11 +147,10 @@ exports.handler = async (event, context) => {
       }
     }
     
-    // Read HTML template from file
+    // Read HTML template from file (same directory as function)
     let htmlTemplate;
     try {
-      // In Lambda, function files are in /var/task
-      const templatePath = path.join(__dirname, '../../willow-v50-embedded-app.html');
+      const templatePath = path.join(__dirname, 'willow-v50-embedded-app.html');
       htmlTemplate = fs.readFileSync(templatePath, 'utf-8');
     } catch (fileErr) {
       console.error('Template read error:', fileErr);
