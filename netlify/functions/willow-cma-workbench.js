@@ -130,6 +130,7 @@ async function generateCMA(params, headers) {
             baths: baths || '',
             sqft: sqft || '',
             prop_type: propType || 'Residential',
+            prop_sub_type: 'Single Family Residence',
             min_listings: minListings || '20',
             months_back: monthsBack || '12',
             radius: radius || '0.75',
