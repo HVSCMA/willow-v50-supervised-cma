@@ -735,9 +735,14 @@
       }
 
       async loadIntelligence() {
-        // Simulate loading WILLOW intelligence
-        // In production, this would make API calls to backend
+        // Check if server pre-calculated intelligence
+        if (window.WILLOW_INTELLIGENCE) {
+          this.intelligence = window.WILLOW_INTELLIGENCE;
+          console.log('WILLOW Intelligence loaded from server:', this.intelligence);
+          return;
+        }
         
+        // Fallback to client-side calculation
         this.intelligence = {
           totalScore: this.calculateMockScore(),
           classification: this.classifyScore(this.calculateMockScore()),
@@ -750,7 +755,7 @@
           triggeredPatterns: this.getMockTriggeredPatterns()
         };
 
-        console.log('WILLOW Intelligence loaded:', this.intelligence);
+        console.log('WILLOW Intelligence loaded (client-side):', this.intelligence);
       }
 
       calculateMockScore() {
@@ -805,7 +810,10 @@
       getMockTriggeredPatterns() {
         const patterns = [];
         
-        if (this.intelligence.totalScore >= 85) {
+        // Calculate score locally to avoid circular dependency
+        const localScore = this.calculateMockScore();
+        
+        if (localScore >= 85) {
           patterns.push({
             id: 12,
             name: 'Omnipresent Intelligence Consensus',
