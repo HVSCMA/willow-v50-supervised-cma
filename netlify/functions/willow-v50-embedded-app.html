@@ -585,6 +585,9 @@
           // Load WILLOW intelligence
           await this.loadIntelligence();
           
+          // Restore tab structure (was destroyed by loading spinner)
+          this.restoreTabStructure();
+          
           // Setup event listeners
           this.setupEventListeners();
           
@@ -850,6 +853,33 @@
         }
 
         return patterns;
+      }
+
+      restoreTabStructure() {
+        const content = document.getElementById('willow-content');
+        content.innerHTML = `
+          <div id="intelligence-content" class="tab-content active">
+            <div class="loading">Loading...</div>
+          </div>
+          <div id="cma-content" class="tab-content">
+            <div class="loading">Loading CMA System</div>
+          </div>
+          <div id="analytics-content" class="tab-content">
+            <div class="loading">Loading Analytics</div>
+          </div>
+          <div id="partners-content" class="tab-content">
+            <div class="loading">Loading Partner System</div>
+          </div>
+          <div id="property-content" class="tab-content">
+            <div class="loading">Loading Property Intelligence</div>
+          </div>
+          <div id="communication-content" class="tab-content">
+            <div class="loading">Loading Communication Center</div>
+          </div>
+          <div id="management-content" class="tab-content">
+            <div class="loading">Loading System Management</div>
+          </div>
+        `;
       }
 
       setupEventListeners() {
