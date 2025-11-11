@@ -699,6 +699,7 @@
 
     <script>
         // Global state
+        const API_BASE_URL = 'https://willow-v50-supervised-cma.netlify.app';
         let personId = null;
         let personData = null;
         let homebeatData = null;
@@ -767,7 +768,7 @@
         // Load person data from FUB
         async function loadPersonData() {
             try {
-                const response = await fetch(`/.netlify/functions/willow-cma-workbench?action=getPersonData&personId=${personId}`);
+                const response = await fetch(`${API_BASE_URL}/.netlify/functions/willow-cma-workbench?action=getPersonData&personId=${personId}`);
                 const data = await response.json();
                 
                 if (data.error) {
@@ -876,7 +877,7 @@
             };
 
             try {
-                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                const response = await fetch(`${API_BASE_URL}/.netlify/functions/willow-cma-workbench`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(params)
@@ -914,7 +915,7 @@
         // Load Homebeat data
         async function loadHomebeatData() {
             try {
-                const response = await fetch(`/.netlify/functions/willow-cma-workbench?action=getHomebeatData&personId=${personId}`);
+                const response = await fetch(`${API_BASE_URL}/.netlify/functions/willow-cma-workbench?action=getHomebeatData&personId=${personId}`);
                 const data = await response.json();
 
                 if (data.error) {
@@ -1040,7 +1041,7 @@
             if (!confirm('Resend this Homebeat to the lead?')) return;
 
             try {
-                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                const response = await fetch(`${API_BASE_URL}/.netlify/functions/willow-cma-workbench`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1169,7 +1170,7 @@
             const partner = document.getElementById(`partner-${property}`)?.value || 'Glenn';
             
             try {
-                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                const response = await fetch(`${API_BASE_URL}/.netlify/functions/willow-cma-workbench`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1211,7 +1212,7 @@
             resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Creating action...</div>';
 
             try {
-                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                const response = await fetch(`${API_BASE_URL}/.netlify/functions/willow-cma-workbench`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
