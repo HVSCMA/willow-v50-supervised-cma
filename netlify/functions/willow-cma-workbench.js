@@ -122,19 +122,23 @@ async function generateCMA(params, headers) {
         // Get person data for lead info
         const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
 
-        // Build CMA URL
+        // Build CMA URL with optimized defaults
         const cmaParams = new URLSearchParams({
             api_key: CLOUDCMA_API_KEY,
             address: address,
             beds: beds || '',
             baths: baths || '',
             sqft: sqft || '',
+            prop_type: propType || 'Residential',
+            min_listings: minListings || '20',
+            months_back: monthsBack || '12',
             radius: radius || '0.75',
-            months_back: monthsBack || '9',
-            min_listings: minListings || '10',
-            prop_type: propType || '',
             title: title || `${personData.name || 'Client'} - ${address}`,
-            callback_url: WEBHOOK_URL
+            name: personData.name || 'Client',
+            headline: 'Comparative Market Analysis',
+            template: 'Web Leads',
+            callback_url: WEBHOOK_URL,
+            job_id: `willow-${personId}-${Date.now()}`
         });
 
         const cmaUrl = `https://cloudcma.com/cmas/new?${cmaParams.toString()}`;
