@@ -549,26 +549,9 @@
         const urlParams = new URLSearchParams(window.location.search);
         const contextParam = urlParams.get('context');
         const signatureParam = urlParams.get('signature');
-        const demoMode = urlParams.get('demo');
 
-        // Demo mode for testing outside FUB iframe
-        if (!contextParam && demoMode === 'true') {
-          console.log('Running in DEMO mode');
-          this.person = {
-            name: 'Demo Contact',
-            email: 'demo@example.com',
-            customFelloLeadScore: 85,
-            customFelloOfDashboardClicks: 12,
-            customFelloOfEmailClicks: 8,
-            customFelloOfFormSubmissions: 3,
-            customWILLOWCMAViews: 5,
-            customWILLOWHotScore: 75
-          };
-          return;
-        }
-
-        if (!contextParam) {
-          throw new Error('No context parameter provided. This app must be accessed through Follow Up Boss iframe.');
+        if (!contextParam && window.location.search.indexOf("demo=true") === -1) {
+          throw new Error('No context parameter provided');
         }
 
         // Decode base64 context
