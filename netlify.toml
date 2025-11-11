@@ -38,11 +38,13 @@
   to = "/.netlify/functions/willow-app"
   status = 200
   force = true
+  query = {"*" = ":*"}  # Preserve all query parameters
 
 [[redirects]]
   from = "/"
-  to = "/willow-app"
+  to = "/.netlify/functions/willow-app"
   status = 200
+  query = {"*" = ":*"}  # Preserve all query parameters
 
 # Environment variables configured in build.environment section above
 # Also set in Netlify dashboard for runtime:
