@@ -33,18 +33,8 @@
     Access-Control-Allow-Headers = "Content-Type, Authorization"
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"
 
-[[redirects]]
-  from = "/willow-app"
-  to = "/.netlify/functions/willow-app"
-  status = 200
-  force = true
-  query = {"*" = ":*"}  # Preserve all query parameters
-
-[[redirects]]
-  from = "/"
-  to = "/.netlify/functions/willow-app"
-  status = 200
-  query = {"*" = ":*"}  # Preserve all query parameters
+# Redirects removed - FUB should call function URL directly:
+# https://willow-v50-supervised-cma.netlify.app/.netlify/functions/willow-app
 
 # Environment variables configured in build.environment section above
 # Also set in Netlify dashboard for runtime:
