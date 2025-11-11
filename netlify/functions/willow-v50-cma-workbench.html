@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WILLOW V50 - CMA Workbench</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            font-size: 14px;
+            color: #718096;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            flex: 1;
+            background: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-height: 600px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-danger {
+            background: #fc8181;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #f56565;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .info-card {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-card-title {
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .info-card-content {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .homebeat-item {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #e2e8f0;
+        }
+
+        .homebeat-item.high-engagement {
+            border-left-color: #f56565;
+            background: #fff5f5;
+        }
+
+        .homebeat-item.medium-engagement {
+            border-left-color: #ed8936;
+            background: #fffaf0;
+        }
+
+        .homebeat-item.low-engagement {
+            border-left-color: #4299e1;
+            background: #ebf8ff;
+        }
+
+        .homebeat-item.not-accepted {
+            border-left-color: #a0aec0;
+            background: #edf2f7;
+        }
+
+        .homebeat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .homebeat-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .engagement-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-critical {
+            background: #f56565;
+            color: white;
+        }
+
+        .badge-high {
+            background: #ed8936;
+            color: white;
+        }
+
+        .badge-medium {
+            background: #4299e1;
+            color: white;
+        }
+
+        .badge-low {
+            background: #a0aec0;
+            color: white;
+        }
+
+        .badge-not-accepted {
+            background: #718096;
+            color: white;
+        }
+
+        .homebeat-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-item {
+            font-size: 13px;
+            color: #4a5568;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #718096;
+        }
+
+        .action-card {
+            background: #fff5f5;
+            border-left: 4px solid #f56565;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .action-card.hot {
+            background: #fffaf0;
+            border-left-color: #ed8936;
+        }
+
+        .action-card.warm {
+            background: #ebf8ff;
+            border-left-color: #4299e1;
+        }
+
+        .action-header {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .action-content {
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .script-box {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            font-style: italic;
+            color: #4a5568;
+            margin: 15px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .spinner {
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fff5f5;
+            border: 2px solid #fc8181;
+            border-radius: 8px;
+            padding: 15px;
+            color: #c53030;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #f0fff4;
+            border: 2px solid #68d391;
+            border-radius: 8px;
+            padding: 15px;
+            color: #22543d;
+            margin: 20px 0;
+        }
+
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .collapsible::before {
+            content: '▼ ';
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .collapsible.collapsed::before {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.hidden {
+            max-height: 0;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .summary-number {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .resend-warning {
+            background: #fffaf0;
+            border: 2px solid #ed8936;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #744210;
+        }
+
+        .resend-warning::before {
+            content: '⚠️';
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 WILLOW V50 - CMA Workbench</h1>
+            <div class="subtitle">Homebeat-Centric Intelligence | Lead: <span id="leadName">Loading...</span></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('cma-workbench')">
+                📊 CMA Workbench
+            </button>
+            <button class="tab-button" onclick="switchTab('homebeat-manager')">
+                🏠 Homebeat Manager
+            </button>
+            <button class="tab-button" onclick="switchTab('action-planner')">
+                ⚡ Action Planner
+            </button>
+        </div>
+
+        <!-- TAB 1: CMA WORKBENCH -->
+        <div id="cma-workbench" class="tab-content active">
+            <div class="section">
+                <div class="section-title">📋 Existing CMA Status</div>
+                <div id="existingCMA" class="info-card">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading CMA data...
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🚀 Generate New CMA</div>
+                
+                <div class="form-group">
+                    <label class="form-label">Property Address *</label>
+                    <input type="text" id="cmaAddress" class="form-input" placeholder="123 Main St, Huntington Beach, CA 92648">
+                </div>
+
+                <div id="autoOptimizedParams" class="info-card">
+                    <div class="info-card-title">Auto-Optimized Parameters (Based on Behavioral Score: <span id="behavioralScore">--</span>)</div>
+                    <div class="info-card-content">
+                        <div class="form-row" style="margin-top: 15px;">
+                            <div>
+                                <label class="form-label">Beds</label>
+                                <input type="number" id="cmaBeds" class="form-input" value="3">
+                            </div>
+                            <div>
+                                <label class="form-label">Baths</label>
+                                <input type="number" id="cmaBaths" class="form-input" value="2">
+                            </div>
+                            <div>
+                                <label class="form-label">SqFt</label>
+                                <input type="number" id="cmaSqft" class="form-input" value="2000">
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top: 15px;">
+                            <div>
+                                <label class="form-label">Search Radius (mi) 🤖</label>
+                                <input type="number" step="0.25" id="cmaRadius" class="form-input" value="0.75" readonly>
+                                <small style="color: #718096;">Score-optimized</small>
+                            </div>
+                            <div>
+                                <label class="form-label">Months Back 🤖</label>
+                                <input type="number" id="cmaMonthsBack" class="form-input" value="9" readonly>
+                                <small style="color: #718096;">Score-optimized</small>
+                            </div>
+                            <div>
+                                <label class="form-label">Min Comparables</label>
+                                <input type="number" id="cmaMinListings" class="form-input" value="10">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="collapsible collapsed" onclick="toggleCollapsible(this)">
+                    <span style="font-weight: 600; color: #667eea;">Edit Parameters Manually</span>
+                </div>
+                <div class="collapsible-content hidden">
+                    <div class="form-row" style="margin-top: 15px;">
+                        <div>
+                            <label class="form-label">Property Type</label>
+                            <select id="cmaPropType" class="form-select">
+                                <option value="">Any</option>
+                                <option value="Residential">Residential</option>
+                                <option value="Residential Income">Residential Income</option>
+                                <option value="Land">Land</option>
+                                <option value="Manufactured In Park">Manufactured In Park</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Variance (%)</label>
+                            <input type="number" id="cmaVariance" class="form-input" value="10">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="form-label">CMA Title (Optional)</label>
+                    <input type="text" id="cmaTitle" class="form-input" placeholder="Leave blank to auto-generate">
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="createHomebeat" checked>
+                    <label for="createHomebeat">Create Homebeat with this CMA</label>
+                </div>
+
+                <div id="homebeatOptions" class="form-group">
+                    <label class="form-label">Homebeat Frequency</label>
+                    <select id="homebeatFrequency" class="form-select">
+                        <option value="quarterly">Quarterly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="semi-annually">Semi-Annually</option>
+                        <option value="annually">Annually</option>
+                    </select>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="generateCMA()">
+                        🚀 GENERATE CMA & CREATE HOMEBEAT
+                    </button>
+                </div>
+
+                <div id="cmaResult"></div>
+            </div>
+        </div>
+
+        <!-- TAB 2: HOMEBEAT MANAGER -->
+        <div id="homebeat-manager" class="tab-content">
+            <div class="section">
+                <div class="section-title">🏠 Active Homebeats</div>
+                
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="refreshHomebeatAnalytics()">
+                        🔄 Refresh Analytics
+                    </button>
+                </div>
+
+                <div id="homebeatList" class="loading" style="margin-top: 20px;">
+                    <div class="spinner"></div>
+                    Loading Homebeat data...
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📊 Engagement Summary</div>
+                <div id="engagementSummary" class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-number" id="highEngagementCount">0</div>
+                        <div class="summary-label">High Engagement (20+ views)</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number" id="mediumEngagementCount">0</div>
+                        <div class="summary-label">Medium Engagement (5-19 views)</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number" id="lowEngagementCount">0</div>
+                        <div class="summary-label">Low Engagement (1-4 views)</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number" id="notAcceptedCount">0</div>
+                        <div class="summary-label">Not Accepted (0 views)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: ACTION PLANNER -->
+        <div id="action-planner" class="tab-content">
+            <div class="section">
+                <div class="section-title">⚡ Triggered Actions (Based on Engagement)</div>
+                <div id="triggeredActions">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Analyzing engagement data...
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📝 Manual Action Creation</div>
+                <div class="form-row">
+                    <div>
+                        <label class="form-label">Action Type</label>
+                        <select id="actionType" class="form-select">
+                            <option value="Task">Task</option>
+                            <option value="Call">Call</option>
+                            <option value="Email">Email</option>
+                            <option value="Note">Note</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Assign To</label>
+                        <select id="assignTo" class="form-select">
+                            <option value="Glenn">Glenn</option>
+                            <option value="Justin">Justin</option>
+                            <option value="Heather">Heather</option>
+                            <option value="Lloyd">Lloyd</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Urgency</label>
+                        <select id="urgency" class="form-select">
+                            <option value="IMMEDIATE">Immediate (24h)</option>
+                            <option value="SAME_DAY">Same Day</option>
+                            <option value="NEXT_DAY">Next Day</option>
+                            <option value="WEEKLY">This Week</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label class="form-label">Notes</label>
+                    <textarea id="actionNotes" class="form-input" rows="3" placeholder="Enter action details..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="createManualAction()">
+                    ✅ CREATE ACTION IN FUB
+                </button>
+                <div id="manualActionResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let personId = null;
+        let personData = null;
+        let homebeatData = null;
+
+        // Initialize app
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Get person ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            personId = urlParams.get('person_id');
+
+            if (!personId) {
+                showError('No person ID provided');
+                return;
+            }
+
+            await loadPersonData();
+            await loadHomebeatData();
+        });
+
+        // Tab switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+
+            // Refresh data when switching to specific tabs
+            if (tabId === 'homebeat-manager') {
+                refreshHomebeatAnalytics();
+            } else if (tabId === 'action-planner') {
+                generateTriggeredActions();
+            }
+        }
+
+        // Toggle collapsible sections
+        function toggleCollapsible(element) {
+            element.classList.toggle('collapsed');
+            const content = element.nextElementSibling;
+            content.classList.toggle('hidden');
+        }
+
+        // Load person data from FUB
+        async function loadPersonData() {
+            try {
+                const response = await fetch(`/.netlify/functions/willow-cma-workbench?action=getPersonData&personId=${personId}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                personData = data;
+                document.getElementById('leadName').textContent = data.name || 'Unknown';
+                
+                // Update behavioral score
+                const score = data.customWILLOWBehavioralScoreV40 || 50;
+                document.getElementById('behavioralScore').textContent = `${score}/100`;
+                
+                // Auto-optimize parameters based on score
+                optimizeCMAParameters(score);
+                
+                // Display existing CMA if available
+                displayExistingCMA(data);
+                
+            } catch (error) {
+                showError('Failed to load person data: ' + error.message);
+            }
+        }
+
+        // Optimize CMA parameters based on behavioral score
+        function optimizeCMAParameters(score) {
+            let radius, monthsBack;
+            
+            if (score >= 90) {
+                radius = 0.25;
+                monthsBack = 3;
+            } else if (score >= 75) {
+                radius = 0.5;
+                monthsBack = 6;
+            } else if (score >= 60) {
+                radius = 0.75;
+                monthsBack = 9;
+            } else if (score >= 40) {
+                radius = 1.0;
+                monthsBack = 12;
+            } else {
+                radius = 1.5;
+                monthsBack = 18;
+            }
+            
+            document.getElementById('cmaRadius').value = radius;
+            document.getElementById('cmaMonthsBack').value = monthsBack;
+        }
+
+        // Display existing CMA
+        function displayExistingCMA(data) {
+            const container = document.getElementById('existingCMA');
+            
+            if (data.customWILLOWCMADate && data.customWILLOWCMALink) {
+                container.innerHTML = `
+                    <div class="info-card-title">Last CMA Generated</div>
+                    <div class="info-card-content">
+                        <div><strong>Date:</strong> ${new Date(data.customWILLOWCMADate).toLocaleDateString()}</div>
+                        <div><strong>Property:</strong> ${data.customWILLOWCMAAddress || 'N/A'}</div>
+                        <div><strong>Estimated Value:</strong> ${data.customWILLOWCenterValue ? '$' + parseInt(data.customWILLOWCenterValue).toLocaleString() : 'N/A'}</div>
+                        <div class="btn-group" style="margin-top: 15px;">
+                            <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMALink}', '_blank')">
+                                📄 View CMA
+                            </button>
+                            <button class="btn btn-secondary" onclick="regenerateCMA()">
+                                🔄 Regenerate
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="info-card-title">No CMA Generated Yet</div>
+                    <div class="info-card-content">Generate your first CMA below to get started.</div>
+                `;
+            }
+        }
+
+        // Generate CMA
+        async function generateCMA() {
+            const address = document.getElementById('cmaAddress').value.trim();
+            
+            if (!address) {
+                showError('Please enter a property address');
+                return;
+            }
+
+            const resultDiv = document.getElementById('cmaResult');
+            resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Generating CMA and creating Homebeat...</div>';
+
+            const params = {
+                action: 'generateCMA',
+                personId: personId,
+                address: address,
+                beds: document.getElementById('cmaBeds').value,
+                baths: document.getElementById('cmaBaths').value,
+                sqft: document.getElementById('cmaSqft').value,
+                radius: document.getElementById('cmaRadius').value,
+                monthsBack: document.getElementById('cmaMonthsBack').value,
+                minListings: document.getElementById('cmaMinListings').value,
+                propType: document.getElementById('cmaPropType').value,
+                title: document.getElementById('cmaTitle').value,
+                createHomebeat: document.getElementById('createHomebeat').checked,
+                homebeatFrequency: document.getElementById('homebeatFrequency').value
+            };
+
+            try {
+                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    resultDiv.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                    return;
+                }
+
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ <strong>CMA Generated Successfully!</strong><br>
+                        ${data.homebeatCreated ? '✅ Homebeat subscription created' : ''}<br>
+                        <div class="btn-group" style="margin-top: 10px;">
+                            <button class="btn btn-secondary" onclick="window.open('${data.cmaUrl}', '_blank')">
+                                📄 View CMA
+                            </button>
+                            ${data.homebeatUrl ? `<button class="btn btn-secondary" onclick="window.open('${data.homebeatUrl}', '_blank')">🏠 View Homebeat</button>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Reload person data to show updated CMA
+                await loadPersonData();
+                await loadHomebeatData();
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Failed to generate CMA: ${error.message}</div>`;
+            }
+        }
+
+        // Load Homebeat data
+        async function loadHomebeatData() {
+            try {
+                const response = await fetch(`/.netlify/functions/willow-cma-workbench?action=getHomebeatData&personId=${personId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    document.getElementById('homebeatList').innerHTML = `<div class="error">${data.error}</div>`;
+                    return;
+                }
+
+                homebeatData = data.homebeats || [];
+                displayHomebeats(homebeatData);
+                updateEngagementSummary(homebeatData);
+
+            } catch (error) {
+                document.getElementById('homebeatList').innerHTML = `<div class="error">Failed to load Homebeat data: ${error.message}</div>`;
+            }
+        }
+
+        // Display Homebeats
+        function displayHomebeats(homebeats) {
+            const container = document.getElementById('homebeatList');
+
+            if (!homebeats || homebeats.length === 0) {
+                container.innerHTML = '<div class="info-card"><div class="info-card-title">No Homebeats Found</div><div class="info-card-content">Generate a CMA with Homebeat subscription to get started.</div></div>';
+                return;
+            }
+
+            container.innerHTML = homebeats.map(hb => {
+                const views = hb.total_views || 0;
+                const daysSinceFirstSend = hb.first_send_date ? Math.floor((Date.now() - new Date(hb.first_send_date).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                const needsResend = views === 0 && daysSinceFirstSend >= 60;
+                
+                let engagementClass, engagementBadge;
+                if (views === 0) {
+                    engagementClass = 'not-accepted';
+                    engagementBadge = '<span class="engagement-badge badge-not-accepted">NOT ACCEPTED</span>';
+                } else if (views >= 20) {
+                    engagementClass = 'high-engagement';
+                    engagementBadge = '<span class="engagement-badge badge-critical">🔥 HIGH</span>';
+                } else if (views >= 5) {
+                    engagementClass = 'medium-engagement';
+                    engagementBadge = '<span class="engagement-badge badge-high">⚠️ MEDIUM</span>';
+                } else {
+                    engagementClass = 'low-engagement';
+                    engagementBadge = '<span class="engagement-badge badge-medium">📊 LOW</span>';
+                }
+
+                return `
+                    <div class="homebeat-item ${engagementClass}">
+                        <div class="homebeat-header">
+                            <div class="homebeat-title">🏠 ${hb.property_address || 'Unknown Address'}</div>
+                            ${engagementBadge}
+                        </div>
+                        ${needsResend ? `
+                            <div class="resend-warning">
+                                Homebeat not accepted for ${daysSinceFirstSend} days - resend recommended
+                            </div>
+                        ` : ''}
+                        <div class="homebeat-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Views:</span> ${views}
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Last View:</span> ${hb.last_view ? new Date(hb.last_view).toLocaleDateString() : 'Never'}
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Frequency:</span> ${hb.frequency || 'N/A'}
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Next Report:</span> ${hb.next_report ? new Date(hb.next_report).toLocaleDateString() : 'N/A'}
+                            </div>
+                            ${daysSinceFirstSend > 0 ? `
+                                <div class="stat-item">
+                                    <span class="stat-label">Days Since First Send:</span> ${daysSinceFirstSend}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-secondary" onclick="window.open('${hb.homebeat_url}', '_blank')">
+                                👁️ View Homebeat
+                            </button>
+                            ${views === 0 || needsResend ? `
+                                <button class="btn btn-primary" onclick="resendHomebeat('${hb.id}')">
+                                    📧 Resend Homebeat
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-secondary" onclick="editHomebeat('${hb.id}')">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-danger" onclick="unsubscribeHomebeat('${hb.id}')">
+                                🚫 Unsubscribe
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update engagement summary
+        function updateEngagementSummary(homebeats) {
+            let high = 0, medium = 0, low = 0, notAccepted = 0;
+
+            homebeats.forEach(hb => {
+                const views = hb.total_views || 0;
+                if (views === 0) notAccepted++;
+                else if (views >= 20) high++;
+                else if (views >= 5) medium++;
+                else low++;
+            });
+
+            document.getElementById('highEngagementCount').textContent = high;
+            document.getElementById('mediumEngagementCount').textContent = medium;
+            document.getElementById('lowEngagementCount').textContent = low;
+            document.getElementById('notAcceptedCount').textContent = notAccepted;
+        }
+
+        // Refresh Homebeat analytics
+        async function refreshHomebeatAnalytics() {
+            document.getElementById('homebeatList').innerHTML = '<div class="loading"><div class="spinner"></div>Refreshing analytics...</div>';
+            await loadHomebeatData();
+        }
+
+        // Resend Homebeat
+        async function resendHomebeat(homebeatId) {
+            if (!confirm('Resend this Homebeat to the lead?')) return;
+
+            try {
+                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'resendHomebeat',
+                        homebeatId: homebeatId,
+                        personId: personId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Failed to resend Homebeat: ' + data.error);
+                    return;
+                }
+
+                alert('✅ Homebeat resent successfully!');
+                await loadHomebeatData();
+
+            } catch (error) {
+                alert('Failed to resend Homebeat: ' + error.message);
+            }
+        }
+
+        // Generate triggered actions
+        async function generateTriggeredActions() {
+            const container = document.getElementById('triggeredActions');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Analyzing engagement data...</div>';
+
+            if (!homebeatData || homebeatData.length === 0) {
+                container.innerHTML = '<div class="info-card"><div class="info-card-title">No Actions Triggered</div><div class="info-card-content">Generate Homebeats and track engagement to see triggered actions here.</div></div>';
+                return;
+            }
+
+            const actions = [];
+
+            homebeatData.forEach(hb => {
+                const views = hb.total_views || 0;
+                const daysSinceFirstSend = hb.first_send_date ? Math.floor((Date.now() - new Date(hb.first_send_date).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+                if (views >= 20) {
+                    actions.push({
+                        priority: 'critical',
+                        property: hb.property_address,
+                        trigger: `Homebeat views (${views}) exceed critical threshold`,
+                        action: 'Schedule listing presentation',
+                        urgency: 'IMMEDIATE',
+                        script: "I noticed you've been monitoring your home value closely with the Homebeat reports. With " + views + " views, it's clear you're serious about understanding your property's worth. The market is moving fast right now - let's discuss what this means for you and your timeline."
+                    });
+                } else if (views >= 10) {
+                    actions.push({
+                        priority: 'hot',
+                        property: hb.property_address,
+                        trigger: `Homebeat views (${views}) show strong engagement`,
+                        action: 'Call to discuss market changes',
+                        urgency: 'SAME_DAY',
+                        script: "I see you've been keeping an eye on the market through your Homebeat reports. Any questions about the recent changes or comparable sales in your area?"
+                    });
+                } else if (views >= 5) {
+                    actions.push({
+                        priority: 'warm',
+                        property: hb.property_address,
+                        trigger: `Homebeat views (${views}) show moderate interest`,
+                        action: 'Email check-in about property value',
+                        urgency: 'WEEKLY',
+                        script: "Just wanted to check in about your Homebeat reports. Are you finding the market updates helpful? Let me know if you'd like to discuss any specific trends."
+                    });
+                } else if (views === 0 && daysSinceFirstSend >= 60) {
+                    actions.push({
+                        priority: 'warm',
+                        property: hb.property_address,
+                        trigger: `Homebeat not opened for ${daysSinceFirstSend} days`,
+                        action: 'Re-engage with updated Homebeat',
+                        urgency: 'WEEKLY',
+                        script: "I wanted to make sure you're still receiving your Homebeat market updates. Would you like me to resend the latest report or adjust the frequency?"
+                    });
+                }
+            });
+
+            if (actions.length === 0) {
+                container.innerHTML = '<div class="info-card"><div class="info-card-title">No Actions Triggered</div><div class="info-card-content">Continue monitoring Homebeat engagement. Actions will appear here when engagement thresholds are met.</div></div>';
+                return;
+            }
+
+            container.innerHTML = actions.map(action => `
+                <div class="action-card ${action.priority}">
+                    <div class="action-header">
+                        ${action.priority === 'critical' ? '🔥 CRITICAL ACTION RECOMMENDED' : action.priority === 'hot' ? '⚠️ HOT ACTION SUGGESTED' : '📊 WARM ACTION SUGGESTED'}
+                    </div>
+                    <div class="action-content">
+                        <div><strong>Property:</strong> ${action.property}</div>
+                        <div><strong>Trigger:</strong> ${action.trigger}</div>
+                        <div><strong>Suggested Action:</strong> ${action.action}</div>
+                        <div><strong>Urgency:</strong> ${action.urgency}</div>
+                    </div>
+                    <div class="script-box">
+                        <strong>Suggested Script:</strong><br>
+                        "${action.script}"
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Assign Partner</label>
+                        <select class="form-select" id="partner-${action.property}">
+                            <option value="Glenn">Glenn</option>
+                            <option value="Justin">Justin</option>
+                            <option value="Heather">Heather</option>
+                            <option value="Lloyd">Lloyd</option>
+                        </select>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="createTask('${action.property}', '${action.action}', '${action.urgency}')">
+                            ✅ Create Task in FUB
+                        </button>
+                        <button class="btn btn-secondary" onclick="createCall('${action.property}')">
+                            📞 Log Call
+                        </button>
+                        <button class="btn btn-secondary" onclick="createEmail('${action.property}', '${action.script}')">
+                            📧 Send Email
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Create task in FUB
+        async function createTask(property, action, urgency) {
+            const partner = document.getElementById(`partner-${property}`)?.value || 'Glenn';
+            
+            try {
+                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'createTask',
+                        personId: personId,
+                        taskDescription: `${action} - Property: ${property}`,
+                        urgency: urgency,
+                        assignedTo: partner
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Failed to create task: ' + data.error);
+                    return;
+                }
+
+                alert(`✅ Task created and assigned to ${partner}!`);
+
+            } catch (error) {
+                alert('Failed to create task: ' + error.message);
+            }
+        }
+
+        // Create manual action
+        async function createManualAction() {
+            const actionType = document.getElementById('actionType').value;
+            const assignTo = document.getElementById('assignTo').value;
+            const urgency = document.getElementById('urgency').value;
+            const notes = document.getElementById('actionNotes').value.trim();
+
+            if (!notes) {
+                alert('Please enter action notes');
+                return;
+            }
+
+            const resultDiv = document.getElementById('manualActionResult');
+            resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Creating action...</div>';
+
+            try {
+                const response = await fetch('/.netlify/functions/willow-cma-workbench', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'createManualAction',
+                        personId: personId,
+                        actionType: actionType,
+                        assignedTo: assignTo,
+                        urgency: urgency,
+                        notes: notes
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    resultDiv.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                    return;
+                }
+
+                resultDiv.innerHTML = `<div class="success">✅ ${actionType} created successfully and assigned to ${assignTo}!</div>`;
+                document.getElementById('actionNotes').value = '';
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Failed to create action: ${error.message}</div>`;
+            }
+        }
+
+        // Helper functions
+        function showError(message) {
+            alert('Error: ' + message);
+        }
+
+        // Edit Homebeat (placeholder)
+        function editHomebeat(homebeatId) {
+            alert('Edit Homebeat functionality coming soon. Homebeat ID: ' + homebeatId);
+        }
+
+        // Unsubscribe Homebeat (placeholder)
+        async function unsubscribeHomebeat(homebeatId) {
+            if (!confirm('Are you sure you want to unsubscribe this Homebeat?')) return;
+            alert('Unsubscribe functionality coming soon. Homebeat ID: ' + homebeatId);
+        }
+
+        // Create call (placeholder)
+        function createCall(property) {
+            alert('Call logging functionality coming soon for property: ' + property);
+        }
+
+        // Create email (placeholder)
+        function createEmail(property, script) {
+            alert('Email creation functionality coming soon for property: ' + property);
+        }
+
+        // Regenerate CMA (placeholder)
+        function regenerateCMA() {
+            alert('Regenerate CMA functionality coming soon.');
+        }
+    </script>
+</body>
+</html>
