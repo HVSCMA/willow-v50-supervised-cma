@@ -4,7 +4,7 @@
   "description": "WILLOW V50 Supervised CMA System - Phase 1: Homebeat-Centric Architecture",
   "main": "index.js",
   "scripts": {
-    "build": "node build-functions.js",
+    "build": "node build-functions-v2.js",
     "test": "echo \"No tests defined\" && exit 0"
   },
   "keywords": ["willow", "cma", "followupboss", "cloudcma", "real-estate"],
