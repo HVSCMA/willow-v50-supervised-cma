@@ -446,13 +446,9 @@
   <div id="willow-container">
     <!-- Navigation Tabs -->
     <nav id="willow-tabs">
-      <button class="tab-button active" data-tab="intelligence">🎯 Intelligence</button>
-      <button class="tab-button" data-tab="cma">📈 CMA</button>
-      <button class="tab-button" data-tab="analytics">📊 Analytics</button>
-      <button class="tab-button" data-tab="partners">🤝 Partners</button>
-      <button class="tab-button" data-tab="property">🏠 Property</button>
-      <button class="tab-button" data-tab="communication">📧 Communication</button>
-      <button class="tab-button" data-tab="management">⚙️ System</button>
+      <button class="tab-button active" data-tab="intelligence">🎯 Intelligence Dashboard</button>
+      <button class="tab-button" data-tab="cma">📈 CMA & Property Intel</button>
+      <button class="tab-button" data-tab="activity">📧 Communication & Activity</button>
     </nav>
 
     <!-- Content Area -->
@@ -859,25 +855,13 @@
         const content = document.getElementById('willow-content');
         content.innerHTML = `
           <div id="intelligence-content" class="tab-content active">
-            <div class="loading">Loading...</div>
+            <div class="loading">Loading Intelligence Dashboard...</div>
           </div>
           <div id="cma-content" class="tab-content">
-            <div class="loading">Loading CMA System</div>
+            <div class="loading">Loading CMA & Property Intel...</div>
           </div>
-          <div id="analytics-content" class="tab-content">
-            <div class="loading">Loading Analytics</div>
-          </div>
-          <div id="partners-content" class="tab-content">
-            <div class="loading">Loading Partner System</div>
-          </div>
-          <div id="property-content" class="tab-content">
-            <div class="loading">Loading Property Intelligence</div>
-          </div>
-          <div id="communication-content" class="tab-content">
-            <div class="loading">Loading Communication Center</div>
-          </div>
-          <div id="management-content" class="tab-content">
-            <div class="loading">Loading System Management</div>
+          <div id="activity-content" class="tab-content">
+            <div class="loading">Loading Communication & Activity...</div>
           </div>
         `;
       }
@@ -922,20 +906,8 @@
           case 'cma':
             contentDiv.innerHTML = this.renderCMAHub();
             break;
-          case 'analytics':
-            contentDiv.innerHTML = this.renderAnalytics();
-            break;
-          case 'partners':
-            contentDiv.innerHTML = this.renderPartners();
-            break;
-          case 'property':
-            contentDiv.innerHTML = this.renderProperty();
-            break;
-          case 'communication':
-            contentDiv.innerHTML = this.renderCommunication();
-            break;
-          case 'management':
-            contentDiv.innerHTML = this.renderManagement();
+          case 'activity':
+            contentDiv.innerHTML = this.renderActivityHub();
             break;
         }
 
@@ -1394,6 +1366,100 @@
         return 55; // 22 WILLOW + 16 Fello + 15 CloudCMA + 2 other
       }
 
+      renderActivityHub() {
+        const personName = this.person ? `${this.person.firstName || ''} ${this.person.lastName || ''}`.trim() : 'Contact';
+        const personEmail = this.person?.emails?.[0]?.value || '';
+        const personPhone = this.person?.phones?.[0]?.value || '';
+        
+        return `
+          <div class="activity-hub">
+            
+            <!-- Quick Communication Actions -->
+            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
+              <h3 style="margin-bottom: 15px;">📧 Quick Actions for ${personName}</h3>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                <button class="action-btn" onclick="window.willowApp.sendEmail('${personEmail}')" style="width: 100%; padding: 12px; font-size: 14px;">
+                  📧 Send Email
+                </button>
+                <button class="action-btn" onclick="window.willowApp.makeCall('${personPhone}')" style="width: 100%; padding: 12px; font-size: 14px;">
+                  📞 Call ${personPhone}
+                </button>
+                <button class="action-btn" onclick="window.willowApp.sendSMS('${personPhone}')" style="width: 100%; padding: 12px; font-size: 14px;">
+                  💬 Send SMS
+                </button>
+                <button class="action-btn" onclick="window.willowApp.scheduleFollowUp()" style="width: 100%; padding: 12px; font-size: 14px;">
+                  📅 Schedule Follow-up
+                </button>
+              </div>
+            </div>
+
+            <!-- Partner Coordination -->
+            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
+              <h4 style="margin-bottom: 15px;">🤝 Partner Coordination</h4>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                ${this.renderPartnerButtons()}
+              </div>
+            </div>
+
+            <!-- Activity Timeline -->
+            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
+              <h4 style="margin-bottom: 15px;">📊 Recent Activity</h4>
+              ${this.renderActivityTimeline()}
+            </div>
+
+            <!-- Notes & Comments -->
+            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border);">
+              <h4 style="margin-bottom: 15px;">📝 Notes & Intelligence</h4>
+              <textarea id="willow-notes" placeholder="Add notes about this contact..." style="width: 100%; height: 120px; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-family: inherit; resize: vertical;"></textarea>
+              <button class="action-btn" onclick="window.willowApp.saveNotes()" style="margin-top: 10px; padding: 8px 16px;">
+                💾 Save Notes
+              </button>
+            </div>
+
+          </div>
+        `;
+      }
+
+      renderPartnerButtons() {
+        const partners = [
+          { name: 'Glenn', role: 'Primary Agent', available: true },
+          { name: 'Justin', role: 'Co-Agent', available: true },
+          { name: 'Heather', role: 'Transaction Coordinator', available: false },
+          { name: 'Lloyd', role: 'Broker', available: true }
+        ];
+        
+        return partners.map(partner => `
+          <button class="action-btn" onclick="window.willowApp.assignPartner('${partner.name}')" 
+                  style="padding: 10px; font-size: 13px; opacity: ${partner.available ? '1' : '0.6'};">
+            ${partner.available ? '✅' : '⏸️'} ${partner.name}
+            <br><small style="font-size: 11px; opacity: 0.8;">${partner.role}</small>
+          </button>
+        `).join('');
+      }
+
+      renderActivityTimeline() {
+        const activities = [
+          { time: '2 hours ago', type: 'email', desc: 'Opened CMA email' },
+          { time: '1 day ago', type: 'dashboard', desc: 'Viewed 3 properties on Fello dashboard' },
+          { time: '3 days ago', type: 'form', desc: 'Submitted property alert form' },
+        ];
+        
+        if (!activities.length) {
+          return '<p style="color: var(--fub-text-muted); font-style: italic;">No recent activity tracked.</p>';
+        }
+        
+        return `
+          <div style="border-left: 2px solid var(--fub-border); padding-left: 15px;">
+            ${activities.map(act => `
+              <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--fub-border);">
+                <div style="font-size: 12px; color: var(--fub-text-muted); margin-bottom: 3px;">${act.time}</div>
+                <div style="font-size: 14px; color: var(--fub-text);">${act.desc}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
       updateQuickActions() {
         const quickActions = document.getElementById('quick-actions');
         const quickActionsContent = document.getElementById('quick-actions-content');
@@ -1498,6 +1564,58 @@
       async addPersonToWILLOW() {
         console.log('Adding person to WILLOW');
         alert('Adding contact to WILLOW system. In production, this would initialize behavioral intelligence tracking.');
+      }
+
+      async sendEmail(email) {
+        if (!email) {
+          alert('No email address available');
+          return;
+        }
+        console.log('Opening email client for:', email);
+        window.open(`mailto:${email}`, '_blank');
+      }
+
+      async makeCall(phone) {
+        if (!phone) {
+          alert('No phone number available');
+          return;
+        }
+        console.log('Initiating call to:', phone);
+        alert(`In production, this would initiate a call to ${phone} via integrated phone system.`);
+      }
+
+      async sendSMS(phone) {
+        if (!phone) {
+          alert('No phone number available');
+          return;
+        }
+        console.log('Opening SMS for:', phone);
+        window.open(`sms:${phone}`, '_blank');
+      }
+
+      async scheduleFollowUp() {
+        console.log('Opening follow-up scheduler');
+        alert('In production, this would open the FUB task scheduler to create a follow-up reminder.');
+      }
+
+      async assignPartner(partnerName) {
+        console.log('Assigning partner:', partnerName);
+        alert(`Assigning ${partnerName} to this contact. In production, this would update FUB assignments and notify the partner.`);
+      }
+
+      async saveNotes() {
+        const notes = document.getElementById('willow-notes')?.value;
+        if (!notes) {
+          alert('Please enter some notes first');
+          return;
+        }
+        console.log('Saving notes:', notes);
+        alert(`Notes saved successfully. In production, this would update FUB custom fields with: ${notes.substring(0, 50)}...`);
+      }
+
+      async executePattern(patternId) {
+        console.log('Executing pattern:', patternId);
+        alert(`Executing trigger pattern ${patternId}. In production, this would initiate automated workflows based on the pattern.`);
       }
     }
 
