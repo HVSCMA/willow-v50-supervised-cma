@@ -573,15 +573,20 @@
 
         // Decode base64 context
         try {
+          console.log('FUB Context Parameter (first 100 chars):', contextParam.substring(0, 100));
           const decodedContext = JSON.parse(atob(contextParam));
           this.context = decodedContext;
           this.person = decodedContext.person;
           this.debugState = decodedContext.debugState;
           
-          console.log('FUB Context loaded:', this.context);
+          console.log('FUB Context loaded successfully');
+          console.log('Person data:', this.person ? 'Present' : 'Missing');
+          console.log('Debug state:', this.debugState || 'None');
           
         } catch (error) {
-          throw new Error('Failed to decode FUB context');
+          console.error('Context decode error details:', error);
+          console.error('Context parameter length:', contextParam.length);
+          throw new Error(`Failed to decode FUB context: ${error.message}`);
         }
       }
 
@@ -1346,12 +1351,25 @@
 
       showError(message) {
         const content = document.getElementById('willow-content');
+        
+        // Log to console for debugging
+        console.error('WILLOW System Error:', message);
+        console.error('Current URL:', window.location.href);
+        console.error('URL Parameters:', window.location.search);
+        
         content.innerHTML = `
           <div class="debug-state">
             <h2>System Error</h2>
             <p>${message}</p>
-            <button class="debug-btn" onclick="location.reload()">
+            <details style="margin-top: 20px; text-align: left;">
+              <summary style="cursor: pointer; color: var(--fub-secondary); font-size: 12px;">Technical Details (Click to expand)</summary>
+              <pre style="margin-top: 10px; padding: 10px; background: var(--fub-background); border-radius: 4px; font-size: 11px; overflow-x: auto;">${message}\n\nURL: ${window.location.href}\n\nOpen browser console (F12) for more details.</pre>
+            </details>
+            <button class="debug-btn" onclick="location.reload()" style="margin-top: 15px;">
               Retry
+            </button>
+            <button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW System Error&body=' + encodeURIComponent('Error: ' + '${message}' + '\\n\\nURL: ' + window.location.href))" style="margin-top: 10px; background: var(--fub-secondary);">
+              Report Error to Glenn
             </button>
           </div>
         `;
