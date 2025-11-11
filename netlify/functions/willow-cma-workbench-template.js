@@ -381,14 +381,24 @@ async function createTask(params, headers) {
                 dueDate.setDate(now.getDate() + 1);
         }
 
+        // FUB tasks API doesn't accept description/body field
+        // Task details should be added as a note after task creation
         const taskPayload = {
             personId: parseInt(personId),
             type: 'Follow Up',
-            description: `${taskDescription}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}`,
             dueDate: dueDate.toISOString()
         };
 
-        await fubAPIRequest('POST', '/v1/tasks', taskPayload);
+        const taskResult = await fubAPIRequest('POST', '/v1/tasks', taskPayload);
+        
+        // Add task details as a note
+        const notePayload = {
+            personId: parseInt(personId),
+            subject: `Task: ${taskDescription}`,
+            body: `${taskDescription}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}\nDue: ${dueDate.toLocaleDateString()}`,
+            isHtml: false
+        };
+        await fubAPIRequest('POST', '/v1/notes', notePayload);
 
         return {
             statusCode: 200,
@@ -451,13 +461,22 @@ async function createManualAction(params, headers) {
             };
             await fubAPIRequest('POST', '/v1/notes', notePayload);
         } else {
+            // FUB tasks API doesn't accept description field
             const taskPayload = {
                 personId: parseInt(personId),
                 type: fubType,
-                description: `${notes}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}`,
                 dueDate: dueDate.toISOString()
             };
             await fubAPIRequest('POST', '/v1/tasks', taskPayload);
+            
+            // Add action details as a note
+            const notePayload = {
+                personId: parseInt(personId),
+                subject: `${fubType} Action`,
+                body: `${notes}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}`,
+                isHtml: false
+            };
+            await fubAPIRequest('POST', '/v1/notes', notePayload);
         }
 
         return {
