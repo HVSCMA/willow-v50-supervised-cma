@@ -9,12 +9,47 @@ cat > willow-app.js << 'EOFFUNCTION'
  */
 
 const crypto = require('crypto');
+const https = require('https');
 
 const FUB_API_KEY = process.env.FUB_API_KEY || 'fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj';
 const FUB_SECRET_KEY = process.env.FUB_SECRET_KEY || 'f1e0c6af664bc1525ecd8fecba255235';
 const CLOUDCMA_API_KEY = process.env.CLOUDCMA_API_KEY || '742f4a46e1780904da090d721a9bae7b';
 
 const HTML_TEMPLATE_B64 = 'TEMPLATE_PLACEHOLDER';
+
+function fetchFUBPerson(personId) {
+  return new Promise((resolve, reject) => {
+    const auth = Buffer.from(FUB_API_KEY + ':').toString('base64');
+    const options = {
+      hostname: 'api.followupboss.com',
+      path: "/v1/people/" + personId,
+      method: 'GET',
+      headers: {
+        'Authorization': 'Basic ' + auth,
+        'Content-Type': 'application/json'
+      }
+    };
+    
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Failed to parse FUB API response'));
+          }
+        } else {
+          reject(new Error("FUB API returned status " + res.statusCode));
+        }
+      });
+    });
+    
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 function calculateOmnipresentScore(person) {
   const felloIntelligence = {
@@ -101,11 +136,21 @@ exports.handler = async (event, context) => {
       try {
         const decodedContext = Buffer.from(contextParam, 'base64').toString('utf-8');
         const contextObj = JSON.parse(decodedContext);
-        personData = contextObj.person || null;
+        const basicPersonData = contextObj.person || null;
         
-        if (personData) {
-          intelligenceData = calculateOmnipresentScore(personData);
-          console.log('Intelligence calculated:', intelligenceData.totalScore);
+        if (basicPersonData && basicPersonData.id) {
+          console.log('Fetching full person record from FUB API for person ID:', basicPersonData.id);
+          try {
+            personData = await fetchFUBPerson(basicPersonData.id);
+            console.log('FUB API: Person fetched successfully with', Object.keys(personData).length, 'fields');
+            intelligenceData = calculateOmnipresentScore(personData);
+            console.log('Intelligence calculated from FUB data:', intelligenceData.totalScore);
+          } catch (apiError) {
+            console.error('FUB API fetch error:', apiError.message);
+            personData = basicPersonData;
+            intelligenceData = calculateOmnipresentScore(personData);
+            console.log('Fallback to basic context data, score:', intelligenceData.totalScore);
+          }
         }
       } catch (err) {
         console.error('Context decode error:', err);
