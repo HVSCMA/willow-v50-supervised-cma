@@ -137,7 +137,7 @@ exports.handler = async (event, context) => {
 };
 EOFFUNCTION
 
-# Replace placeholder with actual Base64
-sed -i "s|TEMPLATE_PLACEHOLDER|$(cat template-fixed.b64)|" willow-app.js
+# Replace placeholder with actual Base64 (single-line version to avoid JavaScript syntax errors)
+sed -i "s|TEMPLATE_PLACEHOLDER|$(cat template-fixed-oneline.b64)|" willow-app.js
 
 echo "✓ Function rebuilt with fixed template ($(wc -c < willow-app.js) bytes)"
