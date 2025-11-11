@@ -229,7 +229,22 @@ async function generateCMA(params, headers) {
 // Get Homebeat data from CloudCMA
 async function getHomebeatData(personId, headers) {
     try {
-        const homebeatReport = await cloudCMAAPIRequest('GET', `/homebeats/report?api_key=${CLOUDCMA_API_KEY}&format=json`);
+        // Try to fetch homebeat data, but gracefully handle CloudCMA auth failures
+        let homebeatReport = [];
+        try {
+            homebeatReport = await cloudCMAAPIRequest('GET', `/homebeats/report?api_key=${CLOUDCMA_API_KEY}&format=json`);
+        } catch (cloudCMAError) {
+            console.warn('CloudCMA API unavailable:', cloudCMAError.message);
+            // Return empty homebeats array instead of failing
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ 
+                    homebeats: [],
+                    warning: 'CloudCMA API unavailable. Check API key configuration.'
+                })
+            };
+        }
 
         const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
         const personEmail = personData.emails?.[0]?.value?.toLowerCase();
@@ -367,13 +382,13 @@ async function createTask(params, headers) {
         }
 
         const taskPayload = {
-            person_id: parseInt(personId),
-            type: 'Task',
-            body: `${taskDescription}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}`,
+            personId: parseInt(personId),
+            type: 'Follow Up',
+            description: `${taskDescription}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}`,
             dueDate: dueDate.toISOString()
         };
 
-        await fubAPIRequest('POST', '/v1/events', taskPayload);
+        await fubAPIRequest('POST', '/v1/tasks', taskPayload);
 
         return {
             statusCode: 200,
@@ -415,14 +430,35 @@ async function createManualAction(params, headers) {
                 dueDate.setDate(now.getDate() + 1);
         }
 
-        const actionPayload = {
-            person_id: parseInt(personId),
-            type: actionType,
-            body: `${notes}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}`,
-            dueDate: actionType === 'Task' ? dueDate.toISOString() : undefined
+        // Map action types to FUB task types
+        const taskTypeMap = {
+            'Task': 'Follow Up',
+            'Call': 'Call',
+            'Email': 'Email',
+            'Text': 'Text',
+            'Note': 'Note'
         };
-
-        await fubAPIRequest('POST', '/v1/events', actionPayload);
+        
+        const fubType = taskTypeMap[actionType] || 'Follow Up';
+        
+        // If it's a Note, use /v1/notes endpoint, otherwise use /v1/tasks
+        if (actionType === 'Note') {
+            const notePayload = {
+                personId: parseInt(personId),
+                subject: `${urgency} Action`,
+                body: `${notes}\n\nAssigned to: ${assignedTo}`,
+                isHtml: false
+            };
+            await fubAPIRequest('POST', '/v1/notes', notePayload);
+        } else {
+            const taskPayload = {
+                personId: parseInt(personId),
+                type: fubType,
+                description: `${notes}\n\nAssigned to: ${assignedTo}\nUrgency: ${urgency}`,
+                dueDate: dueDate.toISOString()
+            };
+            await fubAPIRequest('POST', '/v1/tasks', taskPayload);
+        }
 
         return {
             statusCode: 200,
