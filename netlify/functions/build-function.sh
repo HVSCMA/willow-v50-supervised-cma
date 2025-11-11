@@ -115,13 +115,8 @@ exports.handler = async (event, context) => {
     let htmlTemplate = Buffer.from(HTML_TEMPLATE_B64, 'base64').toString('utf-8');
     
     if (intelligenceData && personData) {
-      const dataScript = \`
-    <script>
-      window.WILLOW_INTELLIGENCE = \${JSON.stringify(intelligenceData)};
-      window.WILLOW_PERSON = \${JSON.stringify(personData)};
-    </script>
-  \`;
-      htmlTemplate = htmlTemplate.replace('</head>', \`\${dataScript}</head>\`);
+      const dataScript = "<script>window.WILLOW_INTELLIGENCE=" + JSON.stringify(intelligenceData) + ";window.WILLOW_PERSON=" + JSON.stringify(personData) + ";</script>";
+      htmlTemplate = htmlTemplate.replace('</head>', dataScript + '</head>');
     }
     
     return { statusCode: 200, headers, body: htmlTemplate };
@@ -131,7 +126,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 500,
       headers,
-      body: \`<html><body><h1>Server Error</h1><p>\${error.message}</p></body></html>\`
+      body: "<html><body><h1>Server Error</h1><p>" + error.message + "</p></body></html>"
     };
   }
 };
