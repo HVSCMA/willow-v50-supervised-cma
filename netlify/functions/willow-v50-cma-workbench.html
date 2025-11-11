@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WILLOW V50 - CMA Workbench</title>
+    <!-- FUB Embedded Apps SDK -->
+    <script type="text/javascript" src="https://eia.followupboss.com/embeddedApps-v1.0.1.js"></script>
     <style>
         * {
             margin: 0;
@@ -703,6 +705,12 @@
 
         // Initialize app
         window.addEventListener('DOMContentLoaded', async () => {
+            // Initialize FUB Embedded Apps SDK
+            if (window.EmbeddedApps) {
+                window.EmbeddedApps.init();
+                console.log('✅ FUB Embedded Apps SDK initialized');
+            }
+            
             // Get person ID from URL
             const urlParams = new URLSearchParams(window.location.search);
             personId = urlParams.get('person_id');
