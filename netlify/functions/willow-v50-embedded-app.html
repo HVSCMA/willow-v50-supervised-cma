@@ -432,6 +432,11 @@
     .tab-content.active {
       display: block;
     }
+    /* Spinner animation for loading state */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -515,11 +520,58 @@
         this.intelligence = null;
         this.currentTab = 'intelligence';
         this.debugState = null;
+        this.isLoaded = false;
         
-        this.init();
+        // LAZY LOAD PATTERN: Show load button, don't auto-initialize
+        this.showLoadButton();
       }
 
-      async init() {
+      showLoadButton() {
+        const content = document.getElementById('willow-content');
+        content.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 400px; gap: 20px;">
+            <div style="text-align: center;">
+              <h2 style="color: var(--fub-text); margin-bottom: 10px;">WILLOW V50 Intelligence System</h2>
+              <p style="color: var(--fub-text-muted); font-size: 14px;">Enhanced Behavioral Scoring & Omnipresent Intelligence</p>
+            </div>
+            <button 
+              onclick="window.willowApp.loadIntelligenceNow()" 
+              style="
+                background: var(--fub-primary);
+                color: white;
+                border: none;
+                padding: 14px 32px;
+                font-size: 15px;
+                font-weight: 600;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              "
+              onmouseover="this.style.background='#1d4ed8'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'"
+              onmouseout="this.style.background='#2563eb'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'"
+            >
+              Load WILLOW Intelligence
+            </button>
+            <p style="color: var(--fub-text-muted); font-size: 12px;">Click to analyze behavioral data from Fello, CloudCMA, WILLOW, and Sierra</p>
+          </div>
+        `;
+      }
+
+      async loadIntelligenceNow() {
+        if (this.isLoaded) return; // Prevent double-loading
+        
+        const content = document.getElementById('willow-content');
+        content.innerHTML = `
+          <div class="loading">
+            <div style="text-align: center;">
+              <div style="width: 40px; height: 40px; border: 4px solid var(--fub-border); border-top-color: var(--fub-primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+              <p>Loading WILLOW Intelligence...</p>
+              <p style="font-size: 12px; color: var(--fub-text-muted); margin-top: 8px;">Analyzing behavioral data...</p>
+            </div>
+          </div>
+        `;
+        
         try {
           // Parse FUB context from URL parameters
           await this.parseContext();
@@ -536,12 +588,15 @@
           // Setup event listeners
           this.setupEventListeners();
           
+          // Mark as loaded
+          this.isLoaded = true;
+          
           // Render initial content
           await this.renderCurrentTab();
           
         } catch (error) {
           console.error('WILLOW App Initialization Error:', error);
-          this.showError('Failed to initialize WILLOW system');
+          this.showError(`Failed to load WILLOW intelligence: ${error.message}`);
         }
       }
 
