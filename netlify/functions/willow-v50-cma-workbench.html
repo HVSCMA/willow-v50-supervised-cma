@@ -706,37 +706,62 @@
 
         // Initialize app
         window.addEventListener('DOMContentLoaded', async () => {
-            // Initialize FUB Embedded Apps SDK and get person context
-            if (window.EmbeddedApps) {
+            console.log('🚀 App initializing...');
+            
+            // Method 1: Try to decode FUB's context query parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const contextParam = urlParams.get('context');
+            
+            if (contextParam) {
                 try {
+                    console.log('📦 Found context parameter, decoding...');
+                    const contextJson = atob(contextParam);
+                    const context = JSON.parse(contextJson);
+                    console.log('✅ Decoded FUB context:', context);
+                    
+                    if (context && context.person && context.person.id) {
+                        personId = context.person.id;
+                        console.log('✅ Got person_id from context param:', personId);
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Failed to decode context parameter:', error);
+                }
+            }
+            
+            // Method 2: Try FUB SDK getContext()
+            if (!personId && window.EmbeddedApps) {
+                try {
+                    console.log('🔄 Trying EmbeddedApps.init()...');
                     await window.EmbeddedApps.init();
                     console.log('✅ FUB SDK initialized');
                     
-                    // Get context from FUB parent window
                     const context = await window.EmbeddedApps.getContext();
-                    console.log('📦 FUB Context:', context);
+                    console.log('📦 FUB SDK Context:', context);
                     
-                    // Extract person_id from context
                     if (context && context.person && context.person.id) {
                         personId = context.person.id;
-                        console.log('✅ Got person_id from FUB context:', personId);
+                        console.log('✅ Got person_id from SDK context:', personId);
                     }
                 } catch (error) {
                     console.warn('⚠️ FUB SDK error:', error);
                 }
             }
             
-            // Fallback to URL parameter if SDK didn't provide person_id
+            // Method 3: Fallback to person_id URL parameter
             if (!personId) {
-                const urlParams = new URLSearchParams(window.location.search);
                 personId = urlParams.get('person_id');
-                console.log('⚠️ Using URL person_id (fallback):', personId);
+                if (personId) {
+                    console.log('⚠️ Using URL person_id (fallback):', personId);
+                }
             }
 
             if (!personId) {
-                showError('No person ID provided in FUB context or URL');
+                console.error('❌ No person_id found via any method');
+                showError('No person ID provided. Tried: context param, SDK getContext(), URL param.');
                 return;
             }
+            
+            console.log('🎯 Final person_id:', personId);
 
             await loadPersonData();
             await loadHomebeatData();
