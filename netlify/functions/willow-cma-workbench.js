@@ -148,11 +148,12 @@ async function generateCMA(params, headers) {
 
         await fubAPIRequest('PUT', `/v1/people/${personId}`, updatePayload);
 
-        // Create FUB activity
-        await fubAPIRequest('POST', '/v1/events', {
-            person_id: parseInt(personId),
-            type: 'Note',
-            body: `CMA generated for ${address}. Parameters: ${beds}bd/${baths}ba, ${sqft}sqft, ${radius}mi radius, ${monthsBack}mo back.`
+        // Create FUB note
+        await fubAPIRequest('POST', '/v1/notes', {
+            personId: parseInt(personId),
+            subject: 'CMA Generated',
+            body: `CMA generated for ${address}. Parameters: ${beds}bd/${baths}ba, ${sqft}sqft, ${radius}mi radius, ${monthsBack}mo back.`,
+            isHtml: false
         });
 
         let homebeatUrl = null;
@@ -194,11 +195,12 @@ async function generateCMA(params, headers) {
                     customWILLOWHomebeatFirstSendDate: new Date().toISOString()
                 });
 
-                // Create FUB activity for Homebeat
-                await fubAPIRequest('POST', '/v1/events', {
-                    person_id: parseInt(personId),
-                    type: 'Note',
-                    body: `Homebeat subscription created for ${address}. Frequency: ${homebeatFrequency}. Lead will receive automated market updates.`
+                // Create FUB note for Homebeat
+                await fubAPIRequest('POST', '/v1/notes', {
+                    personId: parseInt(personId),
+                    subject: 'Homebeat Created',
+                    body: `Homebeat subscription created for ${address}. Frequency: ${homebeatFrequency}. Lead will receive automated market updates.`,
+                    isHtml: false
                 });
 
             } catch (homebeatError) {
@@ -335,10 +337,11 @@ async function resendHomebeat(params, headers) {
             customWILLOWHomebeatLastResend: new Date().toISOString()
         });
 
-        await fubAPIRequest('POST', '/v1/events', {
-            person_id: parseInt(personId),
-            type: 'Note',
-            body: `Homebeat resent for ${homebeat.property_address}. Status was pending (0 views). Manual resend triggered.`
+        await fubAPIRequest('POST', '/v1/notes', {
+            personId: parseInt(personId),
+            subject: 'Homebeat Resent',
+            body: `Homebeat resent for ${homebeat.property_address}. Status was pending (0 views). Manual resend triggered.`,
+            isHtml: false
         });
 
         return {
