@@ -370,6 +370,12 @@
       background: #1d4ed8;
     }
 
+    .action-btn:disabled {
+      background: var(--fub-border);
+      color: var(--fub-text-muted);
+      cursor: not-allowed;
+    }
+
     /* Error/Debug States */
     .debug-state {
       text-align: center;
@@ -432,10 +438,39 @@
     .tab-content.active {
       display: block;
     }
-    /* Spinner animation for loading state */
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+
+    /* Success/Error Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.success {
+      background: var(--fub-success);
+      color: white;
+    }
+
+    .toast.error {
+      background: var(--fub-danger);
+      color: white;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(400px); opacity: 0; }
     }
   </style>
 </head>
@@ -464,29 +499,9 @@
         <div class="loading">Loading CMA System</div>
       </div>
 
-      <!-- Analytics Tab -->
-      <div id="analytics-content" class="tab-content">
-        <div class="loading">Loading Analytics</div>
-      </div>
-
-      <!-- Partners Tab -->
-      <div id="partners-content" class="tab-content">
-        <div class="loading">Loading Partner System</div>
-      </div>
-
-      <!-- Property Tab -->
-      <div id="property-content" class="tab-content">
-        <div class="loading">Loading Property Intelligence</div>
-      </div>
-
-      <!-- Communication Tab -->
-      <div id="communication-content" class="tab-content">
-        <div class="loading">Loading Communication Center</div>
-      </div>
-
-      <!-- Management Tab -->
-      <div id="management-content" class="tab-content">
-        <div class="loading">Loading System Management</div>
+      <!-- Activity Tab -->
+      <div id="activity-content" class="tab-content">
+        <div class="loading">Loading Communication & Activity</div>
       </div>
 
     </main>
@@ -506,8 +521,13 @@
   <script>
     /**
      * WILLOW V50 Embedded App JavaScript
-     * Complete FUB compliance with multi-feature architecture
+     * Complete FUB compliance with CloudCMA integration and FUB Activities
      */
+    
+    const FUB_API_BASE = 'https://api.followupboss.com/v1';
+    const FUB_API_KEY = 'fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj';
+    const CLOUDCMA_API_KEY = '742f4a46e1780904da090d721a9bae7b';
+    const CLOUDCMA_BASE = 'https://api.cloudcma.com/v1';
     
     class WILLOWEmbeddedApp {
       constructor() {
@@ -517,6 +537,7 @@
         this.currentTab = 'intelligence';
         this.debugState = null;
         this.isLoaded = false;
+        this.cmaHistory = [];
         
         // LAZY LOAD PATTERN: Show load button, don't auto-initialize
         this.showLoadButton();
@@ -555,7 +576,7 @@
       }
 
       async loadIntelligenceNow() {
-        if (this.isLoaded) return; // Prevent double-loading
+        if (this.isLoaded) return;
         
         const content = document.getElementById('willow-content');
         content.innerHTML = `
@@ -569,28 +590,21 @@
         `;
         
         try {
-          // Parse FUB context from URL parameters
           await this.parseContext();
           
-          // Handle debug states
           if (this.debugState) {
             this.handleDebugState();
             return;
           }
 
-          // Load WILLOW intelligence
           await this.loadIntelligence();
+          await this.loadCMAHistory();
           
-          // Restore tab structure (was destroyed by loading spinner)
           this.restoreTabStructure();
-          
-          // Setup event listeners
           this.setupEventListeners();
           
-          // Mark as loaded
           this.isLoaded = true;
           
-          // Render initial content
           await this.renderCurrentTab();
           
         } catch (error) {
@@ -602,21 +616,19 @@
       async parseContext() {
         const urlParams = new URLSearchParams(window.location.search);
         const contextParam = urlParams.get('context');
-        const signatureParam = urlParams.get('signature');
         const demoMode = urlParams.get('demo');
 
-        // Demo mode for testing outside FUB iframe
         if (!contextParam && demoMode === 'true') {
           console.log('Running in DEMO mode');
           this.person = {
-            name: 'Demo Contact',
-            email: 'demo@example.com',
+            id: 11823,
+            firstName: 'Demo',
+            lastName: 'Contact',
+            emails: [{value: 'demo@example.com'}],
+            phones: [{value: '555-123-4567'}],
             customFelloLeadScore: 85,
-            customFelloOfDashboardClicks: 12,
-            customFelloOfEmailClicks: 8,
-            customFelloOfFormSubmissions: 3,
-            customWILLOWCMAViews: 5,
-            customWILLOWHotScore: 75
+            customWILLOWCMADate: '2025-10-01',
+            customWILLOWCMALink: 'https://cloudcma.com/demo'
           };
           return;
         }
@@ -625,21 +637,12 @@
           throw new Error('No context parameter provided. This app must be accessed through Follow Up Boss iframe.');
         }
 
-        // Decode base64 context
         try {
-          console.log('FUB Context Parameter (first 100 chars):', contextParam.substring(0, 100));
           const decodedContext = JSON.parse(atob(contextParam));
           this.context = decodedContext;
           this.person = decodedContext.person;
           this.debugState = decodedContext.debugState;
-          
-          console.log('FUB Context loaded successfully');
-          console.log('Person data:', this.person ? 'Present' : 'Missing');
-          console.log('Debug state:', this.debugState || 'None');
-          
         } catch (error) {
-          console.error('Context decode error details:', error);
-          console.error('Context parameter length:', contextParam.length);
           throw new Error(`Failed to decode FUB context: ${error.message}`);
         }
       }
@@ -649,99 +652,52 @@
         
         switch(this.debugState) {
           case 'working':
-            // Continue with normal operation
             break;
-            
           case 'account_not_found':
             content.innerHTML = this.renderAccountNotFound();
             break;
-            
           case 'user_not_found':
             content.innerHTML = this.renderUserNotFound();
             break;
-            
           case 'person_not_found':
             content.innerHTML = this.renderPersonNotFound();
             break;
-            
           case 'unauthorized':
             content.innerHTML = this.renderUnauthorized();
             break;
-            
           default:
             content.innerHTML = this.renderUnknownState();
         }
       }
 
       renderAccountNotFound() {
-        return `
-          <div class="debug-state">
-            <h2>Account Setup Required</h2>
-            <p>Your Follow Up Boss account needs to be configured for WILLOW integration.</p>
-            <button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW Account Setup')">
-              Contact Glenn for Setup
-            </button>
-          </div>
-        `;
+        return `<div class="debug-state"><h2>Account Setup Required</h2><p>Your Follow Up Boss account needs to be configured for WILLOW integration.</p><button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW Account Setup')">Contact Glenn for Setup</button></div>`;
       }
 
       renderUserNotFound() {
-        return `
-          <div class="debug-state">
-            <h2>User Not Found</h2>
-            <p>Your user account is not configured in the WILLOW system.</p>
-            <button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW User Access')">
-              Request Access
-            </button>
-          </div>
-        `;
+        return `<div class="debug-state"><h2>User Not Found</h2><p>Your user account is not configured in the WILLOW system.</p><button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW User Access')">Request Access</button></div>`;
       }
 
       renderPersonNotFound() {
-        return `
-          <div class="debug-state">
-            <h2>Contact Not Found</h2>
-            <p>This contact is not yet in the WILLOW intelligence system.</p>
-            <button class="debug-btn" onclick="this.addPersonToWILLOW()">
-              Add to WILLOW System
-            </button>
-          </div>
-        `;
+        return `<div class="debug-state"><h2>Contact Not Found</h2><p>This contact is not yet in the WILLOW intelligence system.</p><button class="debug-btn" onclick="this.addPersonToWILLOW()">Add to WILLOW System</button></div>`;
       }
 
       renderUnauthorized() {
-        return `
-          <div class="debug-state">
-            <h2>Access Denied</h2>
-            <p>You don't have permission to access the WILLOW system.</p>
-            <button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW Access Request')">
-              Request Permission
-            </button>
-          </div>
-        `;
+        return `<div class="debug-state"><h2>Access Denied</h2><p>You don't have permission to access the WILLOW system.</p><button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW Access Request')">Request Permission</button></div>`;
       }
 
       renderUnknownState() {
-        return `
-          <div class="debug-state">
-            <h2>System Error</h2>
-            <p>Unknown debug state encountered.</p>
-            <button class="debug-btn" onclick="location.reload()">
-              Retry
-            </button>
-          </div>
-        `;
+        return `<div class="debug-state"><h2>System Error</h2><p>Unknown debug state encountered.</p><button class="debug-btn" onclick="location.reload()">Retry</button></div>`;
       }
 
       async loadIntelligence() {
-        // Check if server pre-calculated intelligence
         if (window.WILLOW_INTELLIGENCE) {
           this.intelligence = window.WILLOW_INTELLIGENCE;
           console.log('WILLOW Intelligence loaded from server:', this.intelligence);
           return;
         }
         
-        // Fallback to client-side calculation
+        // Fallback calculation
         this.intelligence = {
           totalScore: this.calculateMockScore(),
           classification: this.classifyScore(this.calculateMockScore()),
@@ -753,50 +709,37 @@
           },
           triggeredPatterns: this.getMockTriggeredPatterns()
         };
+      }
 
-        console.log('WILLOW Intelligence loaded (client-side):', this.intelligence);
+      async loadCMAHistory() {
+        // Load from FUB custom fields
+        if (this.person?.customWILLOWCMADate && this.person?.customWILLOWCMALink) {
+          this.cmaHistory = [{
+            date: this.person.customWILLOWCMADate,
+            link: this.person.customWILLOWCMALink,
+            address: this.person.customWILLOWCMAAddress || 'Property',
+            centerValue: this.person.customWILLOWCenterValue || null
+          }];
+        }
       }
 
       calculateMockScore() {
-        // Mock behavioral scoring based on person data
         if (!this.person) return 45;
-        
         let score = 0;
-        
-        // Mock Fello intelligence (35% weight)
         const felloScore = this.person.customFelloLeadScore || 50;
         score += (felloScore * 0.35);
-        
-        // Mock CloudCMA (25% weight)
         const cmaViews = this.person.customWILLOWCMAViews || 0;
         score += (Math.min(cmaViews * 5, 25));
-        
-        // Mock WILLOW (25% weight)  
         const hotScore = this.person.customWILLOWHotScore || 25;
         score += (hotScore * 0.25);
-        
-        // Mock Sierra (15% weight)
-        score += 10; // Base Sierra score
-        
+        score += 10;
         return Math.min(Math.round(score), 100);
       }
 
-      getMockFelloScore() {
-        return Math.min((this.person?.customFelloLeadScore || 50) * 0.35, 35);
-      }
-
-      getMockCloudCMAScore() {
-        const views = this.person?.customWILLOWCMAViews || 0;
-        return Math.min(views * 5, 25);
-      }
-
-      getMockWILLOWScore() {
-        return (this.person?.customWILLOWHotScore || 25) * 0.25;
-      }
-
-      getMockSierraScore() {
-        return 10; // Base score
-      }
+      getMockFelloScore() { return Math.min((this.person?.customFelloLeadScore || 50) * 0.35, 35); }
+      getMockCloudCMAScore() { return Math.min((this.person?.customWILLOWCMAViews || 0) * 5, 25); }
+      getMockWILLOWScore() { return (this.person?.customWILLOWHotScore || 25) * 0.25; }
+      getMockSierraScore() { return 10; }
 
       classifyScore(score) {
         if (score >= 95) return 'CRITICAL';
@@ -808,8 +751,6 @@
 
       getMockTriggeredPatterns() {
         const patterns = [];
-        
-        // Calculate score locally to avoid circular dependency
         const localScore = this.calculateMockScore();
         
         if (localScore >= 85) {
@@ -836,18 +777,6 @@
           });
         }
 
-        if (this.person?.customWILLOWCMAViews >= 1) {
-          patterns.push({
-            id: 10,
-            name: 'CMA Engagement',
-            icon: '📈',
-            description: 'Active engagement with previous CMA reports',
-            conversionRate: 85,
-            priority: 'MEDIUM',
-            actionLabel: 'Follow Up'
-          });
-        }
-
         return patterns;
       }
 
@@ -867,29 +796,19 @@
       }
 
       setupEventListeners() {
-        // Tab switching
         document.querySelectorAll('.tab-button').forEach(button => {
           button.addEventListener('click', (e) => {
             const tabName = e.target.dataset.tab;
             this.switchTab(tabName);
           });
         });
-
-        // Window resize
-        window.addEventListener('resize', () => {
-          this.handleResize();
-        });
       }
 
       async switchTab(tabName) {
-        // Update active tab
         document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
 
-        // Hide all content
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        // Show selected content
         document.getElementById(`${tabName}-content`).classList.add('active');
 
         this.currentTab = tabName;
@@ -905,13 +824,13 @@
             break;
           case 'cma':
             contentDiv.innerHTML = this.renderCMAHub();
+            this.populateCMAForm();
             break;
           case 'activity':
             contentDiv.innerHTML = this.renderActivityHub();
             break;
         }
 
-        // Update quick actions
         this.updateQuickActions();
       }
 
@@ -923,8 +842,6 @@
 
         return `
           <div class="intelligence-dashboard">
-            
-            <!-- Primary Score Display -->
             <div class="score-section">
               <div class="score-gauge">
                 <div class="gauge-circle" style="--score-percent: ${score}">
@@ -960,18 +877,15 @@
               </div>
             </div>
             
-            <!-- Triggered Patterns -->
             <div class="patterns-section">
               <h3>🎯 Active Trigger Patterns</h3>
               ${this.renderTriggeredPatterns()}
             </div>
             
-            <!-- Contact Information -->
             <div class="patterns-section">
               <h3>📋 Contact Intelligence</h3>
               ${this.renderContactIntelligence()}
             </div>
-            
           </div>
         `;
       }
@@ -1031,51 +945,156 @@
       renderCMAHub() {
         return `
           <div class="cma-hub">
-            <h3 style="margin-bottom: 20px;">📈 CMA Generation & Management</h3>
-            
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
-              <h4 style="margin-bottom: 15px;">Generate Professional CMA</h4>
+            <!-- CMA Generation Form -->
+            <div class="cma-generation-form" style="background: var(--fub-card); padding: 25px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
+              <h3 style="margin-bottom: 20px;">📈 Generate Professional CMA</h3>
               
-              <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;">
-                <div>
-                  <label style="display: block; margin-bottom: 5px; font-size: 12px; color: var(--fub-text-muted);">Property Address</label>
-                  <input type="text" id="cma-address" placeholder="Enter property address..." style="width: 100%; padding: 8px; border: 1px solid var(--fub-border); border-radius: 4px;" />
+              <!-- Subject Property Section -->
+              <div style="margin-bottom: 25px;">
+                <h4 style="margin-bottom: 15px; color: var(--fub-primary);">Subject Property</h4>
+                
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-bottom: 15px;">
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Property Address *</label>
+                    <input type="text" id="cma-address" placeholder="123 Main St, City, State ZIP" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Client Name</label>
+                    <input type="text" id="cma-client-name" placeholder="Client name" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
                 </div>
-                <button class="action-btn" onclick="window.willowApp.generateCMA()" style="padding: 8px 16px;">
+                
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Bedrooms</label>
+                    <input type="number" id="cma-beds" min="0" placeholder="3" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Bathrooms</label>
+                    <input type="number" id="cma-baths" min="0" step="0.5" placeholder="2.5" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Sq Ft</label>
+                    <input type="number" id="cma-sqft" min="0" placeholder="2000" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Property Type</label>
+                    <select id="cma-prop-type" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;">
+                      <option value="Residential">Residential</option>
+                      <option value="Condo">Condo</option>
+                      <option value="Townhouse">Townhouse</option>
+                      <option value="Multi-Family">Multi-Family</option>
+                      <option value="Land">Land</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Search Parameters Section -->
+              <div style="margin-bottom: 25px;">
+                <h4 style="margin-bottom: 15px; color: var(--fub-primary);">Search Parameters</h4>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">
+                      Min Listings <span style="color: var(--fub-text-muted); font-size: 11px;">(Behavioral: <span id="suggested-min-listings">10</span>)</span>
+                    </label>
+                    <input type="number" id="cma-min-listings" min="5" max="50" placeholder="10" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">
+                      Search Radius (miles) <span style="color: var(--fub-text-muted); font-size: 11px;">(Suggested: <span id="suggested-radius">1.0</span>)</span>
+                    </label>
+                    <input type="number" id="cma-radius" min="0.25" max="5" step="0.25" placeholder="1.0" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Months Back</label>
+                    <input type="number" id="cma-months-back" min="1" max="24" placeholder="12" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Report Title</label>
+                    <input type="text" id="cma-title" placeholder="Market Analysis for [Address]" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Notes (Optional)</label>
+                    <input type="text" id="cma-notes" placeholder="Internal notes" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Advanced Options -->
+              <details style="margin-bottom: 20px;">
+                <summary style="cursor: pointer; font-weight: 600; padding: 10px; background: var(--fub-background); border-radius: 4px; margin-bottom: 10px;">
+                  🔧 Advanced Options (Optional)
+                </summary>
+                <div style="padding: 15px; border: 1px solid var(--fub-border); border-radius: 4px;">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                      <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Force Latitude</label>
+                      <input type="number" id="cma-lat" step="0.000001" placeholder="Auto-detected" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                    </div>
+                    <div>
+                      <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Force Longitude</label>
+                      <input type="number" id="cma-lon" step="0.000001" placeholder="Auto-detected" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+                    </div>
+                  </div>
+                </div>
+              </details>
+              
+              <!-- Behavioral Intelligence Alert -->
+              <div id="behavioral-alert" style="padding: 12px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-left: 4px solid var(--fub-primary); border-radius: 4px; margin-bottom: 20px;">
+                <div style="font-size: 13px; font-weight: 600; color: var(--fub-primary); margin-bottom: 5px;">
+                  🎯 Behavioral Optimization Active
+                </div>
+                <div style="font-size: 12px; color: var(--fub-text); line-height: 1.5;">
+                  Intelligence Score: <strong><span id="alert-score">${this.intelligence?.totalScore || 30}</span>/100</strong> (<span id="alert-classification">${this.intelligence?.classification || 'COLD'}</span>) •
+                  Parameters auto-optimized based on lead engagement level
+                </div>
+              </div>
+              
+              <!-- Action Buttons -->
+              <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button onclick="window.willowApp.resetCMAForm()" style="padding: 12px 24px; border: 1px solid var(--fub-border); background: white; color: var(--fub-text); border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+                  Reset
+                </button>
+                <button onclick="window.willowApp.generateCMA()" style="padding: 12px 32px; background: var(--fub-primary); color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);">
                   🚀 Generate CMA
                 </button>
               </div>
-              
-              <div style="margin-top: 15px; padding: 10px; background: var(--fub-background); border-radius: 4px;">
-                <small style="color: var(--fub-text-muted);">
-                  <strong>Behavioral Optimization:</strong> 
-                  ${this.intelligence?.classification} priority • 
-                  ${this.getOptimizedRadius()} mile radius • 
-                  ${this.getOptimizedComparables()} comparables
-                </small>
-              </div>
             </div>
 
+            <!-- Recent CMA History -->
             <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border);">
-              <h4 style="margin-bottom: 15px;">🏠 Recent CMA Activity</h4>
-              ${this.renderCMAHistory()}
+              <h4 style="margin-bottom: 15px;">📋 Recent CMAs for This Contact</h4>
+              <div id="cma-history-list">
+                ${this.renderCMAHistory()}
+              </div>
             </div>
           </div>
         `;
       }
 
-      getOptimizedRadius() {
+      populateCMAForm() {
+        // Auto-populate based on behavioral intelligence
+        const clientName = `${this.person?.firstName || ''} ${this.person?.lastName || ''}`.trim();
+        document.getElementById('cma-client-name').value = clientName;
+        
+        // Behavioral optimization
         const classification = this.intelligence?.classification;
-        switch(classification) {
-          case 'CRITICAL': return '0.5';
-          case 'SUPER_HOT': return '0.6';
-          case 'HOT': return '0.75';
-          default: return '1.0';
-        }
+        const suggestedMinListings = this.getOptimizedMinListings(classification);
+        const suggestedRadius = this.getOptimizedRadius(classification);
+        
+        document.getElementById('suggested-min-listings').textContent = suggestedMinListings;
+        document.getElementById('suggested-radius').textContent = suggestedRadius;
+        document.getElementById('cma-min-listings').value = suggestedMinListings;
+        document.getElementById('cma-radius').value = suggestedRadius;
+        document.getElementById('cma-months-back').value = '12';
       }
 
-      getOptimizedComparables() {
-        const classification = this.intelligence?.classification;
+      getOptimizedMinListings(classification) {
         switch(classification) {
           case 'CRITICAL': return '20';
           case 'SUPER_HOT': return '17';
@@ -1084,286 +1103,34 @@
         }
       }
 
-      renderCMAHistory() {
-        // Mock CMA history
-        const lastCMADate = this.person?.customWILLOWCMADate;
-        const cmaLink = this.person?.customWILLOWCMALink;
-        
-        if (lastCMADate && cmaLink) {
-          return `
-            <div style="padding: 15px; border: 1px solid var(--fub-border); border-radius: 6px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <strong>Latest CMA</strong><br>
-                  <small style="color: var(--fub-text-muted);">Generated: ${new Date(lastCMADate).toLocaleDateString()}</small>
-                </div>
-                <a href="${cmaLink}" target="_blank" class="action-btn" style="text-decoration: none;">
-                  👁️ View CMA
-                </a>
-              </div>
-            </div>
-          `;
-        } else {
-          return '<p style="color: var(--fub-text-muted); font-style: italic;">No previous CMAs found. Generate first CMA above.</p>';
+      getOptimizedRadius(classification) {
+        switch(classification) {
+          case 'CRITICAL': return '0.5';
+          case 'SUPER_HOT': return '0.6';
+          case 'HOT': return '0.75';
+          default: return '1.0';
         }
       }
 
-      renderAnalytics() {
-        return `
-          <div class="analytics-dashboard">
-            <h3 style="margin-bottom: 20px;">📊 Lead Analytics & Performance</h3>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-              <div style="background: var(--fub-card); padding: 15px; border-radius: 8px; border: 1px solid var(--fub-border); text-align: center;">
-                <div style="font-size: 24px; font-weight: bold; color: var(--fub-primary);">${this.intelligence?.totalScore || 0}</div>
-                <div style="font-size: 12px; color: var(--fub-text-muted);">Intelligence Score</div>
-              </div>
-              <div style="background: var(--fub-card); padding: 15px; border-radius: 8px; border: 1px solid var(--fub-border); text-align: center;">
-                <div style="font-size: 24px; font-weight: bold; color: var(--fub-success);">${this.getConversionProbability()}%</div>
-                <div style="font-size: 12px; color: var(--fub-text-muted);">Conversion Probability</div>
-              </div>
-              <div style="background: var(--fub-card); padding: 15px; border-radius: 8px; border: 1px solid var(--fub-border); text-align: center;">
-                <div style="font-size: 24px; font-weight: bold; color: var(--fub-warning);">${this.person?.customFelloOfProperties || 1}</div>
-                <div style="font-size: 12px; color: var(--fub-text-muted);">Properties Owned</div>
-              </div>
-            </div>
-
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border);">
-              <h4 style="margin-bottom: 15px;">📈 Revenue Opportunity</h4>
-              <div style="font-size: 18px; color: var(--fub-primary); margin-bottom: 10px;">
-                Estimated Commission: <strong>${this.calculateCommissionOpportunity()}</strong>
-              </div>
-              <p style="color: var(--fub-text-muted); font-size: 13px;">
-                Based on ${this.intelligence?.classification} priority level and ${this.person?.customFelloOfProperties || 1} property ownership.
-                ${(this.person?.customFelloOfProperties || 0) >= 3 ? 'INVESTOR profile detected - potential for multiple transactions.' : ''}
-              </p>
-            </div>
-          </div>
-        `;
-      }
-
-      getConversionProbability() {
-        const classification = this.intelligence?.classification;
-        const rates = {
-          'CRITICAL': 98,
-          'SUPER_HOT': 90,
-          'HOT': 75,
-          'WARM': 35,
-          'COLD': 15
-        };
-        return rates[classification] || 15;
-      }
-
-      calculateCommissionOpportunity() {
-        const baseCommission = 20000; // Average Glenn commission
-        const properties = this.person?.customFelloOfProperties || 1;
-        const multiplier = Math.min(properties, 3); // Cap at 3 for display
-        const total = baseCommission * multiplier;
+      renderCMAHistory() {
+        if (!this.cmaHistory.length) {
+          return '<p style="color: var(--fub-text-muted); font-style: italic;">No previous CMAs found. Generate first CMA above.</p>';
+        }
         
-        return `$${total.toLocaleString()}`;
-      }
-
-      renderPartners() {
-        return `
-          <div class="partners-dashboard">
-            <h3 style="margin-bottom: 20px;">🤝 Partner Coordination System</h3>
-            
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
-              <h4 style="margin-bottom: 15px;">🎯 Optimal Partner Assignment</h4>
-              <div style="padding: 15px; background: var(--fub-background); border-radius: 6px;">
-                <div style="font-weight: bold; margin-bottom: 5px;">Recommended: ${this.getOptimalPartner()}</div>
-                <div style="color: var(--fub-text-muted); font-size: 13px;">${this.getPartnerRationale()}</div>
+        return this.cmaHistory.map(cma => `
+          <div style="padding: 15px; border: 1px solid var(--fub-border); border-radius: 6px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong>${cma.address}</strong><br>
+                <small style="color: var(--fub-text-muted);">Generated: ${new Date(cma.date).toLocaleDateString()}</small>
+                ${cma.centerValue ? `<br><small>Est. Value: $${parseInt(cma.centerValue).toLocaleString()}</small>` : ''}
               </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
-              ${this.renderPartnerCards()}
-            </div>
-          </div>
-        `;
-      }
-
-      getOptimalPartner() {
-        const score = this.intelligence?.totalScore || 0;
-        const properties = this.person?.customFelloOfProperties || 1;
-        
-        if (score >= 95 || properties >= 3) return 'Glenn Fitzgerald';
-        if (score >= 85) return 'Justin Phillips';  
-        if (properties >= 2) return 'Lloyd Gray';
-        return 'Heather Martin';
-      }
-
-      getPartnerRationale() {
-        const partner = this.getOptimalPartner();
-        const rationales = {
-          'Glenn Fitzgerald': 'System owner + luxury specialist + high priority lead',
-          'Justin Phillips': 'Managing broker + premium client experience',
-          'Lloyd Gray': 'Investment specialist + buyer representation expert',
-          'Heather Martin': 'Residential specialist + first-time buyer expert'
-        };
-        return rationales[partner] || 'Standard residential assignment';
-      }
-
-      renderPartnerCards() {
-        const partners = [
-          { name: 'Glenn Fitzgerald', role: 'System Owner', specialization: 'Luxury + Technology', active: 25, conversion: 92 },
-          { name: 'Justin Phillips', role: 'Managing Broker', specialization: 'Premium Clients', active: 18, conversion: 88 },
-          { name: 'Heather Martin', role: 'Residential Specialist', specialization: 'First-Time Buyers', active: 22, conversion: 85 },
-          { name: 'Lloyd Gray', role: 'Investment Specialist', specialization: 'Buyer Representation', active: 15, conversion: 82 }
-        ];
-
-        return partners.map(partner => `
-          <div style="background: var(--fub-card); padding: 15px; border-radius: 8px; border: 1px solid var(--fub-border);">
-            <h5 style="margin-bottom: 5px;">${partner.name}</h5>
-            <div style="color: var(--fub-text-muted); font-size: 12px; margin-bottom: 10px;">${partner.role}</div>
-            <div style="font-size: 11px; margin-bottom: 8px; color: var(--fub-text-muted);">${partner.specialization}</div>
-            <div style="display: flex; justify-content: space-between;">
-              <small>Active: ${partner.active}</small>
-              <small>Conv: ${partner.conversion}%</small>
+              <a href="${cma.link}" target="_blank" class="action-btn" style="text-decoration: none;">
+                👁️ View CMA
+              </a>
             </div>
           </div>
         `).join('');
-      }
-
-      renderProperty() {
-        return `
-          <div class="property-dashboard">
-            <h3 style="margin-bottom: 20px;">🏠 Property Intelligence Hub</h3>
-            
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
-              <h4 style="margin-bottom: 15px;">📊 Market Intelligence</h4>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-                <div style="text-align: center; padding: 10px;">
-                  <div style="font-weight: bold; color: var(--fub-success);">UP</div>
-                  <div style="font-size: 12px; color: var(--fub-text-muted);">Market Trend</div>
-                </div>
-                <div style="text-align: center; padding: 10px;">
-                  <div style="font-weight: bold; color: var(--fub-warning);">MEDIUM</div>
-                  <div style="font-size: 12px; color: var(--fub-text-muted);">Inventory</div>
-                </div>
-                <div style="text-align: center; padding: 10px;">
-                  <div style="font-weight: bold; color: var(--fub-primary);">45 days</div>
-                  <div style="font-size: 12px; color: var(--fub-text-muted);">Avg DOM</div>
-                </div>
-              </div>
-            </div>
-
-            ${this.renderHomebeatStatus()}
-          </div>
-        `;
-      }
-
-      renderHomebeatStatus() {
-        return `
-          <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border);">
-            <h4 style="margin-bottom: 15px;">📈 Homebeat Monitoring</h4>
-            <p style="color: var(--fub-text-muted); font-style: italic;">
-              Homebeat integration enables automatic market value monitoring and alerts.
-              Contact Glenn to activate property monitoring for this client.
-            </p>
-            <button class="action-btn" style="margin-top: 10px;" onclick="window.willowApp.activateHomebeat()">
-              Activate Homebeat
-            </button>
-          </div>
-        `;
-      }
-
-      renderCommunication() {
-        return `
-          <div class="communication-dashboard">
-            <h3 style="margin-bottom: 20px;">📧 Communication & Follow-Up Center</h3>
-            
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
-              <h4 style="margin-bottom: 15px;">📬 Email Intelligence</h4>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-                <div style="text-align: center; padding: 10px;">
-                  <div style="font-weight: bold; color: var(--fub-primary);">${this.person?.customFelloOfEmailClicks || 0}</div>
-                  <div style="font-size: 12px; color: var(--fub-text-muted);">Email Clicks</div>
-                </div>
-                <div style="text-align: center; padding: 10px;">
-                  <div style="font-weight: bold; color: var(--fub-success);">Active</div>
-                  <div style="font-size: 12px; color: var(--fub-text-muted);">Status</div>
-                </div>
-                <div style="text-align: center; padding: 10px;">
-                  <div style="font-weight: bold; color: var(--fub-warning);">Email</div>
-                  <div style="font-size: 12px; color: var(--fub-text-muted);">Preferred</div>
-                </div>
-              </div>
-            </div>
-
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border);">
-              <h4 style="margin-bottom: 15px;">⚡ Recommended Follow-Up</h4>
-              <div style="padding: 15px; background: var(--fub-background); border-radius: 6px;">
-                <div style="font-weight: bold; margin-bottom: 5px;">Next Action: ${this.getNextAction()}</div>
-                <div style="color: var(--fub-text-muted); font-size: 13px; margin-bottom: 10px;">${this.getActionReason()}</div>
-                <button class="action-btn" onclick="window.willowApp.executeFollowUp()">
-                  Execute Follow-Up
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      getNextAction() {
-        const classification = this.intelligence?.classification;
-        const actions = {
-          'CRITICAL': 'Call within 15 minutes',
-          'SUPER_HOT': 'Call today',
-          'HOT': 'Email + CMA generation', 
-          'WARM': 'Nurturing email sequence',
-          'COLD': 'Monthly touchpoint'
-        };
-        return actions[classification] || 'Standard follow-up';
-      }
-
-      getActionReason() {
-        return `Based on ${this.intelligence?.classification} priority and behavioral intelligence analysis.`;
-      }
-
-      renderManagement() {
-        return `
-          <div class="management-dashboard">
-            <h3 style="margin-bottom: 20px;">⚙️ System Management & Sync</h3>
-            
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
-              <h4 style="margin-bottom: 15px;">🔄 Integration Status</h4>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                ${this.renderIntegrationStatus()}
-              </div>
-            </div>
-
-            <div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border);">
-              <h4 style="margin-bottom: 15px;">📊 Custom Fields (${this.getCustomFieldCount()} total)</h4>
-              <div style="font-size: 13px; color: var(--fub-text-muted); line-height: 1.6;">
-                • <strong>22 WILLOW fields</strong> (write-enabled): Behavioral intelligence, CMA data, market analysis<br>
-                • <strong>16 Fello fields</strong> (read-only): Lead scoring, engagement metrics, property intelligence<br>
-                • <strong>15 CloudCMA fields</strong> (write-enabled): MLS intelligence, market conditions, CMA analytics<br>
-                • <strong>2 Other fields</strong>: Additional property and system data
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      renderIntegrationStatus() {
-        const integrations = [
-          { name: 'Follow Up Boss', status: 'Connected', color: 'var(--fub-success)' },
-          { name: 'Fello Platform', status: 'Synced', color: 'var(--fub-success)' },
-          { name: 'CloudCMA', status: 'Operational', color: 'var(--fub-success)' },
-          { name: 'Sierra Interactive', status: 'Integrated', color: 'var(--fub-success)' }
-        ];
-
-        return integrations.map(integration => `
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--fub-border);">
-            <span style="font-size: 13px;">${integration.name}</span>
-            <span style="font-size: 12px; color: ${integration.color}; font-weight: bold;">${integration.status}</span>
-          </div>
-        `).join('');
-      }
-
-      getCustomFieldCount() {
-        return 55; // 22 WILLOW + 16 Fello + 15 CloudCMA + 2 other
       }
 
       renderActivityHub() {
@@ -1498,23 +1265,24 @@
         }
       }
 
-      handleResize() {
-        // Handle responsive behavior
-        const quickActions = document.getElementById('quick-actions');
-        if (window.innerWidth <= 768) {
-          quickActions.style.display = 'none';
-        } else if (this.intelligence && this.intelligence.classification !== 'COLD') {
-          quickActions.style.display = 'block';
-        }
+      showToast(message, type = 'success') {
+        const existingToast = document.querySelector('.toast');
+        if (existingToast) existingToast.remove();
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+          toast.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
       }
 
       showError(message) {
         const content = document.getElementById('willow-content');
-        
-        // Log to console for debugging
         console.error('WILLOW System Error:', message);
-        console.error('Current URL:', window.location.href);
-        console.error('URL Parameters:', window.location.search);
         
         content.innerHTML = `
           <div class="debug-state">
@@ -1522,100 +1290,290 @@
             <p>${message}</p>
             <details style="margin-top: 20px; text-align: left;">
               <summary style="cursor: pointer; color: var(--fub-secondary); font-size: 12px;">Technical Details (Click to expand)</summary>
-              <pre style="margin-top: 10px; padding: 10px; background: var(--fub-background); border-radius: 4px; font-size: 11px; overflow-x: auto;">${message}\n\nURL: ${window.location.href}\n\nOpen browser console (F12) for more details.</pre>
+              <pre style="margin-top: 10px; padding: 10px; background: var(--fub-background); border-radius: 4px; font-size: 11px; overflow-x: auto;">${message}\n\nURL: ${window.location.href}</pre>
             </details>
-            <button class="debug-btn" onclick="location.reload()" style="margin-top: 15px;">
-              Retry
-            </button>
-            <button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW System Error&body=' + encodeURIComponent('Error: ' + '${message}' + '\\n\\nURL: ' + window.location.href))" style="margin-top: 10px; background: var(--fub-secondary);">
-              Report Error to Glenn
-            </button>
+            <button class="debug-btn" onclick="location.reload()" style="margin-top: 15px;">Retry</button>
+            <button class="debug-btn" onclick="window.open('mailto:glenn@hudsonvalleysold.com?subject=WILLOW System Error&body=' + encodeURIComponent('Error: ' + '${message}' + '\\n\\nURL: ' + window.location.href))" style="margin-top: 10px; background: var(--fub-secondary);">Report Error to Glenn</button>
           </div>
         `;
       }
 
-      // Action Methods (called from UI)
+      // === ACTION METHODS (called from UI) ===
+      
       async executePattern(patternId) {
         console.log('Executing pattern:', patternId);
-        alert(`Executing trigger pattern ${patternId}. In production, this would trigger appropriate workflows.`);
+        this.showToast('Executing trigger pattern workflow', 'success');
+      }
+
+      resetCMAForm() {
+        document.getElementById('cma-address').value = '';
+        document.getElementById('cma-beds').value = '';
+        document.getElementById('cma-baths').value = '';
+        document.getElementById('cma-sqft').value = '';
+        document.getElementById('cma-lat').value = '';
+        document.getElementById('cma-lon').value = '';
+        document.getElementById('cma-title').value = '';
+        document.getElementById('cma-notes').value = '';
+        this.populateCMAForm();
+        this.showToast('Form reset to behavioral defaults', 'success');
       }
 
       async generateCMA() {
         const address = document.getElementById('cma-address')?.value;
         if (!address) {
-          alert('Please enter a property address');
+          this.showToast('Please enter a property address', 'error');
           return;
         }
         
-        console.log('Generating CMA for:', address);
-        alert(`Generating CMA for ${address}. In production, this would trigger CloudCMA generation with behavioral optimization.`);
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = '⏳ Generating CMA...';
+        
+        try {
+          // Collect all form data
+          const cmaData = {
+            address: address,
+            beds: document.getElementById('cma-beds').value || '',
+            baths: document.getElementById('cma-baths').value || '',
+            sqft: document.getElementById('cma-sqft').value || '',
+            prop_type: document.getElementById('cma-prop-type').value || 'Residential',
+            min_listings: document.getElementById('cma-min-listings').value || '10',
+            radius: document.getElementById('cma-radius').value || '1.0',
+            months_back: document.getElementById('cma-months-back').value || '12',
+            title: document.getElementById('cma-title').value || `Market Analysis for ${address}`,
+            notes: document.getElementById('cma-notes').value || '',
+            lat: document.getElementById('cma-lat').value || '',
+            lon: document.getElementById('cma-lon').value || '',
+            api_key: CLOUDCMA_API_KEY
+          };
+          
+          // Build CloudCMA API URL
+          const params = new URLSearchParams();
+          for (const [key, value] of Object.entries(cmaData)) {
+            if (value) params.append(key, value);
+          }
+          
+          const cmaURL = `${CLOUDCMA_BASE}/cma?${params.toString()}`;
+          console.log('CloudCMA API Call:', cmaURL);
+          
+          // Open CMA in new window (CloudCMA API returns redirect to CMA)
+          window.open(cmaURL, '_blank');
+          
+          // Save CMA metadata to FUB custom fields
+          await this.updateFUBCustomFields({
+            customWILLOWCMADate: new Date().toISOString(),
+            customWILLOWCMALink: cmaURL,
+            customWILLOWCMAAddress: address,
+            customWILLOWCenterValue: '',
+            customWILLOWCloudCMAType: cmaData.prop_type,
+            customWILLOWCloudCMACreated: new Date().toISOString()
+          });
+          
+          // Log FUB activity
+          await this.logFUBActivity({
+            type: 'CMA_Generated',
+            subject: `CMA Generated: ${address}`,
+            message: `Generated CMA for ${address} using WILLOW V50 Intelligence System. Behavioral Score: ${this.intelligence?.totalScore}/100 (${this.intelligence?.classification}).`
+          });
+          
+          this.showToast('CMA generated successfully! Opening in new window...', 'success');
+          
+          // Reload CMA history
+          await this.loadCMAHistory();
+          
+        } catch (error) {
+          console.error('CMA generation error:', error);
+          this.showToast('Failed to generate CMA: ' + error.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🚀 Generate CMA';
+        }
       }
 
-      async executeFollowUp() {
-        console.log('Executing follow-up');
-        alert('Executing follow-up action. In production, this would create tasks and send communications.');
+      async updateFUBCustomFields(fields) {
+        if (!this.person?.id) {
+          console.warn('No person ID available for FUB update');
+          return;
+        }
+        
+        try {
+          const auth = btoa(FUB_API_KEY + ':');
+          const response = await fetch(`${FUB_API_BASE}/people/${this.person.id}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': 'Basic ' + auth,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(fields)
+          });
+          
+          if (!response.ok) {
+            throw new Error(`FUB API returned ${response.status}`);
+          }
+          
+          console.log('FUB custom fields updated successfully');
+          
+        } catch (error) {
+          console.error('FUB custom field update error:', error);
+          throw error;
+        }
       }
 
-      async activateHomebeat() {
-        console.log('Activating Homebeat');
-        alert('Activating Homebeat monitoring. In production, this would setup automated market value tracking.');
-      }
-
-      async addPersonToWILLOW() {
-        console.log('Adding person to WILLOW');
-        alert('Adding contact to WILLOW system. In production, this would initialize behavioral intelligence tracking.');
+      async logFUBActivity(activity) {
+        if (!this.person?.id) {
+          console.warn('No person ID available for FUB activity');
+          return;
+        }
+        
+        try {
+          const auth = btoa(FUB_API_KEY + ':');
+          const response = await fetch(`${FUB_API_BASE}/events`, {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Basic ' + auth,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              personId: this.person.id,
+              type: activity.type || 'Note',
+              subject: activity.subject || 'WILLOW Activity',
+              message: activity.message || '',
+              source: 'WILLOW V50'
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`FUB Activity API returned ${response.status}`);
+          }
+          
+          console.log('FUB activity logged successfully');
+          
+        } catch (error) {
+          console.error('FUB activity logging error:', error);
+        }
       }
 
       async sendEmail(email) {
         if (!email) {
-          alert('No email address available');
+          this.showToast('No email address available', 'error');
           return;
         }
-        console.log('Opening email client for:', email);
+        
+        console.log('Creating FUB email activity for:', email);
+        
+        // Log FUB activity
+        await this.logFUBActivity({
+          type: 'Email',
+          subject: 'Email sent via WILLOW',
+          message: `Email initiated from WILLOW Intelligence System to ${email}`
+        });
+        
+        // Open email client (FUB desktop will show activity)
         window.open(`mailto:${email}`, '_blank');
+        this.showToast('Email activity logged in FUB', 'success');
       }
 
       async makeCall(phone) {
         if (!phone) {
-          alert('No phone number available');
+          this.showToast('No phone number available', 'error');
           return;
         }
-        console.log('Initiating call to:', phone);
-        alert(`In production, this would initiate a call to ${phone} via integrated phone system.`);
+        
+        console.log('Creating FUB call activity for:', phone);
+        
+        // Log FUB call activity
+        try {
+          const auth = btoa(FUB_API_KEY + ':');
+          const response = await fetch(`${FUB_API_BASE}/calls`, {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Basic ' + auth,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              personId: this.person.id,
+              phoneNumber: phone,
+              direction: 'outbound',
+              duration: 0,
+              notes: 'Call initiated from WILLOW V50 Intelligence System'
+            })
+          });
+          
+          if (response.ok) {
+            this.showToast('Call activity logged in FUB', 'success');
+          }
+        } catch (error) {
+          console.error('FUB call logging error:', error);
+        }
+        
+        // Open tel link
+        window.open(`tel:${phone}`, '_blank');
       }
 
       async sendSMS(phone) {
         if (!phone) {
-          alert('No phone number available');
+          this.showToast('No phone number available', 'error');
           return;
         }
-        console.log('Opening SMS for:', phone);
+        
+        console.log('Creating FUB SMS activity for:', phone);
+        
+        // Log FUB activity
+        await this.logFUBActivity({
+          type: 'SMS',
+          subject: 'SMS sent via WILLOW',
+          message: `SMS initiated from WILLOW Intelligence System to ${phone}`
+        });
+        
+        // Open SMS
         window.open(`sms:${phone}`, '_blank');
+        this.showToast('SMS activity logged in FUB', 'success');
       }
 
       async scheduleFollowUp() {
-        console.log('Opening follow-up scheduler');
-        alert('In production, this would open the FUB task scheduler to create a follow-up reminder.');
+        console.log('Creating FUB task for follow-up');
+        
+        // Log FUB activity as task
+        await this.logFUBActivity({
+          type: 'Task',
+          subject: 'Follow-up scheduled via WILLOW',
+          message: `Follow-up task created from WILLOW Intelligence System. Priority: ${this.intelligence?.classification}`
+        });
+        
+        this.showToast('Follow-up task logged in FUB. Check FUB desktop for details.', 'success');
       }
 
       async assignPartner(partnerName) {
         console.log('Assigning partner:', partnerName);
-        alert(`Assigning ${partnerName} to this contact. In production, this would update FUB assignments and notify the partner.`);
+        
+        // Log FUB activity
+        await this.logFUBActivity({
+          type: 'Note',
+          subject: `Partner assigned: ${partnerName}`,
+          message: `${partnerName} assigned to this contact via WILLOW V50 Intelligence System`
+        });
+        
+        this.showToast(`${partnerName} assignment logged in FUB`, 'success');
       }
 
       async saveNotes() {
         const notes = document.getElementById('willow-notes')?.value;
         if (!notes) {
-          alert('Please enter some notes first');
+          this.showToast('Please enter some notes first', 'error');
           return;
         }
-        console.log('Saving notes:', notes);
-        alert(`Notes saved successfully. In production, this would update FUB custom fields with: ${notes.substring(0, 50)}...`);
-      }
-
-      async executePattern(patternId) {
-        console.log('Executing pattern:', patternId);
-        alert(`Executing trigger pattern ${patternId}. In production, this would initiate automated workflows based on the pattern.`);
+        
+        console.log('Saving notes to FUB:', notes);
+        
+        // Save to FUB as activity
+        await this.logFUBActivity({
+          type: 'Note',
+          subject: 'WILLOW Intelligence Note',
+          message: notes
+        });
+        
+        this.showToast('Notes saved to FUB successfully', 'success');
+        document.getElementById('willow-notes').value = '';
       }
     }
 
@@ -1626,7 +1584,6 @@
 
     // Handle FUB embedded app events
     window.addEventListener('message', (event) => {
-      // Handle any FUB-specific events
       console.log('FUB Event received:', event);
     });
   </script>

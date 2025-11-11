@@ -1,0 +1,142 @@
+<!-- COMPREHENSIVE CMA FORM WITH CLOUDCMA PARAMETERS -->
+<div class="cma-generation-form" style="background: var(--fub-card); padding: 25px; border-radius: 8px; border: 1px solid var(--fub-border); margin-bottom: 20px;">
+  <h3 style="margin-bottom: 20px;">📈 Generate Professional CMA</h3>
+  
+  <!-- Subject Property Section -->
+  <div style="margin-bottom: 25px;">
+    <h4 style="margin-bottom: 15px; color: var(--fub-primary);">Subject Property</h4>
+    
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-bottom: 15px;">
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Property Address *</label>
+        <input type="text" id="cma-address" placeholder="123 Main St, City, State ZIP" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Client Name</label>
+        <input type="text" id="cma-client-name" placeholder="Client name" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Bedrooms</label>
+        <input type="number" id="cma-beds" min="0" placeholder="3" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Bathrooms</label>
+        <input type="number" id="cma-baths" min="0" step="0.5" placeholder="2.5" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Sq Ft</label>
+        <input type="number" id="cma-sqft" min="0" placeholder="2000" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Property Type</label>
+        <select id="cma-prop-type" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;">
+          <option value="Residential">Residential</option>
+          <option value="Condo">Condo</option>
+          <option value="Townhouse">Townhouse</option>
+          <option value="Multi-Family">Multi-Family</option>
+          <option value="Land">Land</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Search Parameters Section -->
+  <div style="margin-bottom: 25px;">
+    <h4 style="margin-bottom: 15px; color: var(--fub-primary);">Search Parameters</h4>
+    
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">
+          Min Listings <span style="color: var(--fub-text-muted); font-size: 11px;">(Behavioral: <span id="suggested-min-listings">10</span>)</span>
+        </label>
+        <input type="number" id="cma-min-listings" min="5" max="50" placeholder="10" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">
+          Search Radius (miles) <span style="color: var(--fub-text-muted); font-size: 11px;">(Suggested: <span id="suggested-radius">1.0</span>)</span>
+        </label>
+        <input type="number" id="cma-radius" min="0.25" max="5" step="0.25" placeholder="1.0" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Months Back</label>
+        <input type="number" id="cma-months-back" min="1" max="24" placeholder="12" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Report Title</label>
+        <input type="text" id="cma-title" placeholder="Market Analysis for [Address]" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Notes (Optional)</label>
+        <input type="text" id="cma-notes" placeholder="Internal notes" 
+               style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+      </div>
+    </div>
+  </div>
+  
+  <!-- Advanced Options (Collapsible) -->
+  <details style="margin-bottom: 20px;">
+    <summary style="cursor: pointer; font-weight: 600; padding: 10px; background: var(--fub-background); border-radius: 4px; margin-bottom: 10px;">
+      🔧 Advanced Options (Optional)
+    </summary>
+    <div style="padding: 15px; border: 1px solid var(--fub-border); border-radius: 4px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Force Latitude</label>
+          <input type="number" id="cma-lat" step="0.000001" placeholder="Auto-detected" 
+                 style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Force Longitude</label>
+          <input type="number" id="cma-lon" step="0.000001" placeholder="Auto-detected" 
+                 style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
+        </div>
+      </div>
+    </div>
+  </details>
+  
+  <!-- Behavioral Intelligence Alert -->
+  <div id="behavioral-alert" style="padding: 12px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-left: 4px solid var(--fub-primary); border-radius: 4px; margin-bottom: 20px;">
+    <div style="font-size: 13px; font-weight: 600; color: var(--fub-primary); margin-bottom: 5px;">
+      🎯 Behavioral Optimization Active
+    </div>
+    <div style="font-size: 12px; color: var(--fub-text); line-height: 1.5;">
+      Intelligence Score: <strong><span id="alert-score">30</span>/100</strong> (<span id="alert-classification">COLD</span>) •
+      Parameters auto-optimized based on lead engagement level
+    </div>
+  </div>
+  
+  <!-- Action Buttons -->
+  <div style="display: flex; gap: 12px; justify-content: flex-end;">
+    <button onclick="window.willowApp.resetCMAForm()" 
+            style="padding: 12px 24px; border: 1px solid var(--fub-border); background: white; color: var(--fub-text); border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;">
+      Reset
+    </button>
+    <button onclick="window.willowApp.generateCMA()" 
+            style="padding: 12px 32px; background: var(--fub-primary); color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);">
+      🚀 Generate CMA
+    </button>
+  </div>
+</div>
+
+<!-- Recent CMA History -->
+<div style="background: var(--fub-card); padding: 20px; border-radius: 8px; border: 1px solid var(--fub-border);">
+  <h4 style="margin-bottom: 15px;">📋 Recent CMAs for This Contact</h4>
+  <div id="cma-history-list">
+    <p style="color: var(--fub-text-muted); font-style: italic;">Loading CMA history...</p>
+  </div>
+</div>
