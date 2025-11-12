@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FUB Iframe Test - Joseph Caplan</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        #info { padding: 20px; background: #f0f0f0; }
+        iframe { width: 100%; height: 800px; border: 1px solid #ccc; }
+        .console-output { 
+            background: #1e1e1e; 
+            color: #d4d4d4; 
+            padding: 15px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log { color: #4ec9b0; }
+        .error { color: #f48771; }
+        .warn { color: #dcdcaa; }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h2>🧪 FUB Iframe Test - Joseph Caplan (person_id: 4272)</h2>
+        <p><strong>Test URL:</strong> <span id="testUrl"></span></p>
+        <p><strong>Context Param:</strong> <code id="contextParam"></code></p>
+        <h3>📊 Console Output (from iframe):</h3>
+        <div id="consoleOutput" class="console-output">Waiting for iframe to load...</div>
+    </div>
+    
+    <iframe id="testIframe" sandbox="allow-scripts allow-forms allow-same-origin" src=""></iframe>
+
+    <script>
+        // Create FUB context for Joseph Caplan (person_id: 4272)
+        const fubContext = {
+            "context": "person",
+            "person": {
+                "id": 4272,
+                "firstName": "Joseph",
+                "lastName": "Caplan",
+                "emails": [
+                    {
+                        "value": "wicoppee@hotmail.com",
+                        "type": "home",
+                        "isPrimary": 1
+                    }
+                ],
+                "phones": [
+                    {
+                        "value": "(845) 896-9439",
+                        "type": "landline",
+                        "isPrimary": 1
+                    }
+                ],
+                "stage": {
+                    "id": 2,
+                    "name": "Lead"
+                }
+            },
+            "account": {
+                "id": 123456,
+                "domain": "sudomail"
+            },
+            "user": {
+                "id": 1,
+                "name": "Glenn Fitzgerald",
+                "email": "glenn@hvscma.com"
+            }
+        };
+
+        // Encode context as Base64 (URL-safe)
+        const contextJson = JSON.stringify(fubContext);
+        const contextBase64 = btoa(contextJson);
+        
+        // Generate fake signature (we're not validating it yet)
+        const fakeSignature = "abc123fake";
+        
+        // Build URL with context parameter (how FUB calls embedded apps)
+        const appUrl = `https://willow-v50-supervised-cma.netlify.app/.netlify/functions/willow-cma-workbench?context=${encodeURIComponent(contextBase64)}&signature=${fakeSignature}`;
+        
+        // Display info
+        document.getElementById('testUrl').textContent = appUrl;
+        document.getElementById('contextParam').textContent = contextBase64.substring(0, 100) + '...';
+        
+        // Load iframe
+        const iframe = document.getElementById('testIframe');
+        iframe.src = appUrl;
+        
+        // Capture console logs from iframe (attempt)
+        const consoleDiv = document.getElementById('consoleOutput');
+        let logBuffer = [];
+        
+        // Override console methods in iframe (after it loads)
+        iframe.onload = function() {
+            consoleDiv.innerHTML = '<div class="log">✅ Iframe loaded. Waiting for app logs...</div>';
+            
+            // Try to access iframe console (may be blocked by CORS)
+            try {
+                const iframeWindow = iframe.contentWindow;
+                const iframeConsole = iframeWindow.console;
+                
+                ['log', 'error', 'warn'].forEach(method => {
+                    const original = iframeConsole[method];
+                    iframeConsole[method] = function(...args) {
+                        logBuffer.push({type: method, message: args.join(' ')});
+                        consoleDiv.innerHTML += `<div class="${method}">${args.join(' ')}</div>`;
+                        original.apply(iframeConsole, args);
+                    };
+                });
+            } catch (e) {
+                consoleDiv.innerHTML = `<div class="error">⚠️ Cannot access iframe console due to CORS. Open browser DevTools (F12) and check Console tab for logs from the iframe.</div>`;
+            }
+        };
+        
+        // Poll for logs every 2 seconds
+        setInterval(() => {
+            if (logBuffer.length === 0) {
+                consoleDiv.innerHTML = '<div class="warn">No logs captured yet. Open DevTools (F12) → Console to see iframe logs.</div>';
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
