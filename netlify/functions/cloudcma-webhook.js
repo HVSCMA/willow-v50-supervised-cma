@@ -9,21 +9,21 @@ const FUB_API_KEY = process.env.FUB_API_KEY || 'fka_0oHt62NxmsExO6x69p08ix82zx8i
 function generateAgentSafeURL(originalUrl) {
     if (!originalUrl) return null;
     
-    // Try common agent preview parameters used by analytics platforms
-    const agentParams = [
-        '?preview=agent',     // Common preview mode
-        '?admin=1',          // Admin view
-        '?agent=true',       // Agent indicator
-        '?no_track=1',       // No tracking
-        '?internal=1',       // Internal view
-        '?staff=1'           // Staff view
-    ];
-    
     // If URL already has parameters, use & instead of ?
     const separator = originalUrl.includes('?') ? '&' : '?';
     
-    // Try the first parameter (most common)
+    // Try the most common agent preview parameter
     return originalUrl + separator + 'preview=agent';
+}
+
+// Generate all agent-safe deliverable URLs
+function generateAllAgentSafeURLs(payload) {
+    return {
+        agentLiveURL: payload.live_url ? generateAgentSafeURL(payload.live_url) : 
+                     (payload.share_url ? generateAgentSafeURL(payload.share_url) : 
+                     (payload.public_url ? generateAgentSafeURL(payload.public_url) : null)),
+        agentPDFURL: payload.pdf_url ? generateAgentSafeURL(payload.pdf_url) : null
+    };
 }
 
 // Extract live URLs from webhook payload (when CloudCMA adds them)
@@ -101,22 +101,28 @@ exports.handler = async (event, context) => {
                 templateType = payload.pdf_url ? 'quick' : 'website';
             }
             
-            // Extract and process live URLs
+            // Extract and process all URLs
             const liveUrl = extractLiveURL(payload);
-            const agentSafeUrl = liveUrl ? generateAgentSafeURL(liveUrl) : null;
+            const agentUrls = generateAllAgentSafeURLs(payload);
             
-            // Update FUB custom fields with comprehensive CMA data
+            // Comprehensive FUB custom fields with ALL URL types
             const updatePayload = {
-                customWILLOWCMALink: payload.pdf_url || payload.edit_url, // Fallback to edit if no PDF
+                // Primary tracking
+                customWILLOWCMALink: payload.pdf_url || payload.edit_url, // Backward compatibility
                 customWILLOWCMADate: payload.created_at,
                 customWILLOWCMAID: payload.id.toString(),
-                customWILLOWCMAEditURL: payload.edit_url, // Agent-only editing (no view count impact)
-                customWILLOWCMAPDFURL: payload.pdf_url,   // Client-viewable PDF
-                customWILLOWCMALiveURL: liveUrl, // Live interactive URL (view counting)
-                customWILLOWCMAAgentURL: agentSafeUrl, // Agent-safe version (attempts to bypass counting)
                 customWILLOWCMAStatus: 'created',
                 customWILLOWCMAType: templateType,
-                customWILLOWCMAAddress: address
+                customWILLOWCMAAddress: address,
+                
+                // AGENT URLs (Safe for Glenn & Partners - No View Count Impact)
+                customWILLOWCMAEditURL: payload.edit_url,        // Agent editing interface
+                customWILLOWCMAAgentLiveURL: agentUrls.agentLiveURL,  // Agent-safe live deliverable
+                customWILLOWCMAAgentPDFURL: agentUrls.agentPDFURL,    // Agent-safe PDF deliverable
+                
+                // CLIENT URLs (For Client Delivery - Will Count Views)
+                customWILLOWCMALiveURL: liveUrl,                // Client live deliverable 
+                customWILLOWCMAPDFURL: payload.pdf_url          // Client PDF deliverable
             };
             
             await fubAPIRequest('PUT', `/v1/people/${lead.id}`, updatePayload);

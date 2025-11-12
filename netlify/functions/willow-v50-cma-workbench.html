@@ -838,6 +838,21 @@
                 window.open(liveUrl, '_blank');
             }
         }
+        
+        // Copy URL to clipboard for client delivery
+        function copyToClipboard(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                // Show temporary success message
+                const toast = document.createElement('div');
+                toast.innerHTML = '✓ Copied to clipboard';
+                toast.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #059669; color: white; padding: 10px 15px; border-radius: 6px; z-index: 1000; font-weight: 600;';
+                document.body.appendChild(toast);
+                setTimeout(() => document.body.removeChild(toast), 2000);
+            }).catch(() => {
+                // Fallback for older browsers
+                prompt('Copy this URL:', url);
+            });
+        }
 
         // Tab switching
         function switchTab(tabId) {
@@ -965,53 +980,61 @@
                     '<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">✓ READY</span>' :
                     '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">DRAFT</span>';
                 
-                // Build buttons based on available links
-                let buttons = [];
+                // Build comprehensive button layout - Agent vs Client URLs
+                let agentButtons = [];
+                let clientButtons = [];
                 
-                // Agent Edit Link (highest priority - no view count impact)
+                // AGENT SECTION (Safe for Glenn & Partners - No View Count Impact)
                 if (data.customWILLOWCMAEditURL) {
-                    const editIcon = data.customWILLOWCMAType === 'full' ? '✏️ Edit CMA' : '👁️ Agent View';
-                    buttons.push(`
+                    const editIcon = data.customWILLOWCMAType === 'full' ? '✏️ Edit' : '👁️ View';
+                    agentButtons.push(`
                         <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAEditURL}', '_blank')" 
-                                style="background: #6366f1; color: white;" title="Agent-only editing interface (safe - no view count impact)">
+                                style="background: #6366f1; color: white; margin: 2px;" title="Agent editing interface - completely safe">
                             ${editIcon}
                         </button>
                     `);
                 }
                 
-                // Agent-Safe Live URL (second priority - attempts to bypass counting)
-                if (data.customWILLOWCMAAgentURL) {
-                    buttons.push(`
-                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAAgentURL}', '_blank')" 
-                                style="background: #059669; color: white;" title="Agent preview with ?preview=agent parameter (attempts to bypass view counting)">
-                            🔍 Agent Preview
+                if (data.customWILLOWCMAAgentLiveURL) {
+                    agentButtons.push(`
+                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAAgentLiveURL}', '_blank')" 
+                                style="background: #059669; color: white; margin: 2px;" title="Agent-safe live deliverable (?preview=agent)">
+                            🌐 Live Preview
                         </button>
                     `);
                 }
                 
-                // Live URL Warning (third priority - will count views)
-                if (data.customWILLOWCMALiveURL && !data.customWILLOWCMAAgentURL) {
-                    buttons.push(`
-                        <button class="btn btn-secondary" onclick="showViewCountWarning('${data.customWILLOWCMALiveURL}')" 
-                                style="background: #f59e0b; color: white;" title="⚠️ WARNING: Will increment client view counter">
-                            ⚠️ Live URL (Counts Views)
+                if (data.customWILLOWCMAAgentPDFURL) {
+                    agentButtons.push(`
+                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAAgentPDFURL}', '_blank')" 
+                                style="background: #0891b2; color: white; margin: 2px;" title="Agent-safe PDF deliverable (?preview=agent)">
+                            📄 PDF Preview
                         </button>
                     `);
                 }
                 
-                // Client PDF Link 
+                // CLIENT SECTION (For Client Delivery - Will Count Views)
+                if (data.customWILLOWCMALiveURL) {
+                    clientButtons.push(`
+                        <button class="btn btn-secondary" onclick="copyToClipboard('${data.customWILLOWCMALiveURL}')" 
+                                style="background: #dc2626; color: white; margin: 2px;" title="Copy client live URL to clipboard">
+                            🔗 Copy Live URL
+                        </button>
+                    `);
+                }
+                
                 if (data.customWILLOWCMAPDFURL) {
-                    buttons.push(`
-                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAPDFURL}', '_blank')" 
-                                style="background: #dc2626; color: white;" title="Client-viewable PDF (may affect view counts)">
-                            📄 Client PDF
+                    clientButtons.push(`
+                        <button class="btn btn-secondary" onclick="copyToClipboard('${data.customWILLOWCMAPDFURL}')" 
+                                style="background: #dc2626; color: white; margin: 2px;" title="Copy client PDF URL to clipboard">
+                            🔗 Copy PDF URL
                         </button>
                     `);
                 }
                 
-                // Fallback to main link
-                if (data.customWILLOWCMALink && !data.customWILLOWCMAEditURL && !data.customWILLOWCMAPDFURL) {
-                    buttons.push(`
+                // Fallback to main link if no specific URLs available
+                if (data.customWILLOWCMALink && agentButtons.length === 0 && clientButtons.length === 0) {
+                    agentButtons.push(`
                         <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMALink}', '_blank')">
                             📄 View CMA
                         </button>
