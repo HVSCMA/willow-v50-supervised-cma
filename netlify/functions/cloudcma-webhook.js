@@ -62,13 +62,25 @@ exports.handler = async (event, context) => {
 
         // Handle different webhook actions
         if (payload.action === 'created') {
-            // Update FUB custom fields with CMA data
-            await fubAPIRequest('PUT', `/v1/people/${lead.id}`, {
-                customWILLOWCMALink: payload.pdf_url,
+            // Determine template type based on URL patterns
+            let templateType = 'full'; // default
+            if (payload.edit_url && payload.edit_url.includes('/widget/')) {
+                templateType = payload.pdf_url ? 'quick' : 'website';
+            }
+            
+            // Update FUB custom fields with comprehensive CMA data
+            const updatePayload = {
+                customWILLOWCMALink: payload.pdf_url || payload.edit_url, // Fallback to edit if no PDF
                 customWILLOWCMADate: payload.created_at,
                 customWILLOWCMAID: payload.id.toString(),
+                customWILLOWCMAEditURL: payload.edit_url, // Agent-only editing (no view count impact)
+                customWILLOWCMAPDFURL: payload.pdf_url,   // Client-viewable PDF
+                customWILLOWCMAStatus: 'created',
+                customWILLOWCMAType: templateType,
                 customWILLOWCMAAddress: address
-            });
+            };
+            
+            await fubAPIRequest('PUT', `/v1/people/${lead.id}`, updatePayload);
 
             console.log('Updated FUB custom fields for lead:', lead.id);
 

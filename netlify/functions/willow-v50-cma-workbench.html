@@ -934,21 +934,66 @@
             document.getElementById('cmaMonthsBack').value = monthsBack;
         }
 
-        // Display existing CMA
+        // Display existing CMA with all available links
         function displayExistingCMA(data) {
             const container = document.getElementById('existingCMA');
             
-            if (data.customWILLOWCMADate && data.customWILLOWCMALink) {
+            if (data.customWILLOWCMADate && (data.customWILLOWCMALink || data.customWILLOWCMAEditURL || data.customWILLOWCMAPDFURL)) {
+                // Template type with icon
+                const templateIcons = {
+                    'quick': '🚀 Quick CMA',
+                    'website': '🌐 Website CMA', 
+                    'full': '📋 Full CMA'
+                };
+                const templateDisplay = templateIcons[data.customWILLOWCMAType] || '📋 CMA';
+                const statusBadge = data.customWILLOWCMAStatus === 'created' ? 
+                    '<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">✓ READY</span>' :
+                    '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">DRAFT</span>';
+                
+                // Build buttons based on available links
+                let buttons = [];
+                
+                // Agent Edit Link (priority - no view count impact)
+                if (data.customWILLOWCMAEditURL) {
+                    const editIcon = data.customWILLOWCMAType === 'full' ? '✏️ Edit CMA' : '👁️ Agent View';
+                    buttons.push(`
+                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAEditURL}', '_blank')" 
+                                style="background: #6366f1; color: white;" title="Agent-only access (won't affect client view counts)">
+                            ${editIcon}
+                        </button>
+                    `);
+                }
+                
+                // Client PDF Link 
+                if (data.customWILLOWCMAPDFURL) {
+                    buttons.push(`
+                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAPDFURL}', '_blank')" 
+                                style="background: #dc2626; color: white;" title="Client-viewable PDF (may affect view counts)">
+                            📄 Client PDF
+                        </button>
+                    `);
+                }
+                
+                // Fallback to main link
+                if (data.customWILLOWCMALink && !data.customWILLOWCMAEditURL && !data.customWILLOWCMAPDFURL) {
+                    buttons.push(`
+                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMALink}', '_blank')">
+                            📄 View CMA
+                        </button>
+                    `);
+                }
+                
                 container.innerHTML = `
-                    <div class="info-card-title">Last CMA Generated</div>
+                    <div class="info-card-title">
+                        ${templateDisplay} ${statusBadge}
+                    </div>
                     <div class="info-card-content">
                         <div><strong>Date:</strong> ${new Date(data.customWILLOWCMADate).toLocaleDateString()}</div>
-                        <div><strong>Property:</strong> ${data.customWILLOWCMAAddress || 'N/A'}</div>
+                        <div><strong>Property:</strong> ${data.customWILLOWCMAAddress || data.customWILLOWCMAAddress || 'N/A'}</div>
                         <div><strong>Estimated Value:</strong> ${data.customWILLOWCenterValue ? '$' + parseInt(data.customWILLOWCenterValue).toLocaleString() : 'N/A'}</div>
-                        <div class="btn-group" style="margin-top: 15px;">
-                            <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMALink}', '_blank')">
-                                📄 View CMA
-                            </button>
+                        ${data.customWILLOWCMAID ? `<div><strong>CMA ID:</strong> ${data.customWILLOWCMAID}</div>` : ''}
+                        <div class="btn-group" style="margin-top: 15px; gap: 8px;">
+                            ${buttons.join('')}
                             <button class="btn btn-secondary" onclick="regenerateCMA()">
                                 🔄 Regenerate
                             </button>
