@@ -823,6 +823,21 @@
             
             descriptionDiv.textContent = descriptions[templateType] || descriptions['full'];
         }
+        
+        // Show view count warning for live URLs
+        function showViewCountWarning(liveUrl) {
+            const confirmed = confirm(
+                '⚠️ VIEW COUNT WARNING ⚠️\n\n' +
+                'This live URL will increment the client view counter.\n' +
+                'Each view may affect client engagement analytics.\n\n' +
+                'Consider using "Agent Preview" or "Edit CMA" links instead.\n\n' +
+                'Do you still want to proceed?'
+            );
+            
+            if (confirmed) {
+                window.open(liveUrl, '_blank');
+            }
+        }
 
         // Tab switching
         function switchTab(tabId) {
@@ -953,13 +968,33 @@
                 // Build buttons based on available links
                 let buttons = [];
                 
-                // Agent Edit Link (priority - no view count impact)
+                // Agent Edit Link (highest priority - no view count impact)
                 if (data.customWILLOWCMAEditURL) {
                     const editIcon = data.customWILLOWCMAType === 'full' ? '✏️ Edit CMA' : '👁️ Agent View';
                     buttons.push(`
                         <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAEditURL}', '_blank')" 
-                                style="background: #6366f1; color: white;" title="Agent-only access (won't affect client view counts)">
+                                style="background: #6366f1; color: white;" title="Agent-only editing interface (safe - no view count impact)">
                             ${editIcon}
+                        </button>
+                    `);
+                }
+                
+                // Agent-Safe Live URL (second priority - attempts to bypass counting)
+                if (data.customWILLOWCMAAgentURL) {
+                    buttons.push(`
+                        <button class="btn btn-secondary" onclick="window.open('${data.customWILLOWCMAAgentURL}', '_blank')" 
+                                style="background: #059669; color: white;" title="Agent preview with ?preview=agent parameter (attempts to bypass view counting)">
+                            🔍 Agent Preview
+                        </button>
+                    `);
+                }
+                
+                // Live URL Warning (third priority - will count views)
+                if (data.customWILLOWCMALiveURL && !data.customWILLOWCMAAgentURL) {
+                    buttons.push(`
+                        <button class="btn btn-secondary" onclick="showViewCountWarning('${data.customWILLOWCMALiveURL}')" 
+                                style="background: #f59e0b; color: white;" title="⚠️ WARNING: Will increment client view counter">
+                            ⚠️ Live URL (Counts Views)
                         </button>
                     `);
                 }

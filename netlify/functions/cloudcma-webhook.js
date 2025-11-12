@@ -5,6 +5,39 @@ const https = require('https');
 
 const FUB_API_KEY = process.env.FUB_API_KEY || 'fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj';
 
+// Generate agent-safe URLs by appending common preview parameters
+function generateAgentSafeURL(originalUrl) {
+    if (!originalUrl) return null;
+    
+    // Try common agent preview parameters used by analytics platforms
+    const agentParams = [
+        '?preview=agent',     // Common preview mode
+        '?admin=1',          // Admin view
+        '?agent=true',       // Agent indicator
+        '?no_track=1',       // No tracking
+        '?internal=1',       // Internal view
+        '?staff=1'           // Staff view
+    ];
+    
+    // If URL already has parameters, use & instead of ?
+    const separator = originalUrl.includes('?') ? '&' : '?';
+    
+    // Try the first parameter (most common)
+    return originalUrl + separator + 'preview=agent';
+}
+
+// Extract live URLs from webhook payload (when CloudCMA adds them)
+function extractLiveURL(payload) {
+    // Look for common live URL patterns in CloudCMA webhooks
+    // This may need updates when CloudCMA provides live URLs
+    if (payload.live_url) return payload.live_url;
+    if (payload.share_url) return payload.share_url;
+    if (payload.public_url) return payload.public_url;
+    
+    // For now, return null - will be enhanced when we discover the pattern
+    return null;
+}
+
 exports.handler = async (event, context) => {
     // Only accept POST requests
     if (event.httpMethod !== 'POST') {
@@ -68,6 +101,10 @@ exports.handler = async (event, context) => {
                 templateType = payload.pdf_url ? 'quick' : 'website';
             }
             
+            // Extract and process live URLs
+            const liveUrl = extractLiveURL(payload);
+            const agentSafeUrl = liveUrl ? generateAgentSafeURL(liveUrl) : null;
+            
             // Update FUB custom fields with comprehensive CMA data
             const updatePayload = {
                 customWILLOWCMALink: payload.pdf_url || payload.edit_url, // Fallback to edit if no PDF
@@ -75,6 +112,8 @@ exports.handler = async (event, context) => {
                 customWILLOWCMAID: payload.id.toString(),
                 customWILLOWCMAEditURL: payload.edit_url, // Agent-only editing (no view count impact)
                 customWILLOWCMAPDFURL: payload.pdf_url,   // Client-viewable PDF
+                customWILLOWCMALiveURL: liveUrl, // Live interactive URL (view counting)
+                customWILLOWCMAAgentURL: agentSafeUrl, // Agent-safe version (attempts to bypass counting)
                 customWILLOWCMAStatus: 'created',
                 customWILLOWCMAType: templateType,
                 customWILLOWCMAAddress: address
