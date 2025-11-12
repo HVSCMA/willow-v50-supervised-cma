@@ -514,6 +514,18 @@
                     <input type="text" id="cmaAddress" class="form-input" placeholder="123 Main St, Poughkeepsie, NY 12601">
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label">CMA Template Type *</label>
+                    <select id="cmaTemplateType" class="form-input">
+                        <option value="quick">🚀 Quick CMA (Automated Email Delivery)</option>
+                        <option value="full" selected>📋 Full CMA (Manual Agent Completion)</option>
+                        <option value="website">🌐 Website CMA (Live Homebeat-Style)</option>
+                    </select>
+                    <div class="template-description" id="templateDescription" style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Professional CMA with full customization - agent completes and delivers manually
+                    </div>
+                </div>
+
                 <div class="btn-group" style="margin-bottom: 20px;">
                     <button type="button" class="btn btn-secondary" id="autoFillButton" onclick="autoFillPropertyData()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
                         🔍 Auto-Fill Property Data (ATTOM)
@@ -792,7 +804,25 @@
 
             await loadPersonData();
             await loadHomebeatData();
+            
+            // Setup template type change handler
+            document.getElementById('cmaTemplateType').addEventListener('change', updateTemplateDescription);
+            updateTemplateDescription(); // Set initial description
         });
+        
+        // Update template description based on selection
+        function updateTemplateDescription() {
+            const templateType = document.getElementById('cmaTemplateType').value;
+            const descriptionDiv = document.getElementById('templateDescription');
+            
+            const descriptions = {
+                'quick': 'Automated lead generation CMA - emailed to client within 1 minute using Web Leads template',
+                'full': 'Professional CMA with full customization - agent completes and delivers manually', 
+                'website': 'Live interactive CMA (Homebeat-style) - can be emailed automatically or integrated with FUB'
+            };
+            
+            descriptionDiv.textContent = descriptions[templateType] || descriptions['full'];
+        }
 
         // Tab switching
         function switchTab(tabId) {
@@ -945,10 +975,13 @@
             const resultDiv = document.getElementById('cmaResult');
             resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Generating CMA and creating Homebeat...</div>';
 
+            const templateType = document.getElementById('cmaTemplateType').value;
+            
             const params = {
                 action: 'generateCMA',
                 personId: personId,
                 address: address,
+                templateType: templateType,
                 beds: document.getElementById('cmaBeds').value,
                 baths: document.getElementById('cmaBaths').value,
                 sqft: document.getElementById('cmaSqft').value,
@@ -975,13 +1008,29 @@
                     return;
                 }
 
+                const templateIcons = {
+                    'quick': '🚀',
+                    'website': '🌐', 
+                    'full': '📋'
+                };
+                
+                const templateMessages = {
+                    'quick': 'automatically emailed to client within 1 minute',
+                    'website': 'live interactive report generated',
+                    'full': 'ready for agent customization and delivery'
+                };
+                
                 resultDiv.innerHTML = `
                     <div class="success">
-                        ✅ <strong>CMA Generated Successfully!</strong><br>
-                        ${data.homebeatCreated ? '✅ Homebeat subscription created' : ''}<br>
+                        ✅ <strong>${templateIcons[data.templateType] || '📋'} ${data.templateLabel} Generated Successfully!</strong><br>
+                        <div style="margin: 10px 0; padding: 10px; background: #f0fff4; border-left: 4px solid #68d391; border-radius: 4px;">
+                            <strong>Delivery:</strong> ${templateMessages[data.templateType] || 'ready for manual completion'}<br>
+                            <strong>Method:</strong> ${data.deliveryMethod}
+                        </div>
+                        ${data.homebeatCreated ? '✅ Homebeat subscription created<br>' : ''}
                         <div class="btn-group" style="margin-top: 10px;">
                             <button class="btn btn-secondary" onclick="window.open('${data.cmaUrl}', '_blank')">
-                                📄 View CMA
+                                ${data.templateType === 'quick' ? '📧 Check Email Delivery' : data.templateType === 'website' ? '🌐 View Live Report' : '📄 Complete CMA'}
                             </button>
                             ${data.homebeatUrl ? `<button class="btn btn-secondary" onclick="window.open('${data.homebeatUrl}', '_blank')">🏠 View Homebeat</button>` : ''}
                         </div>
