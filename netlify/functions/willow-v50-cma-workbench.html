@@ -707,6 +707,8 @@
         // Initialize app
         window.addEventListener('DOMContentLoaded', async () => {
             console.log('🚀 App initializing...');
+            console.log('🌐 Current URL:', window.location.href);
+            console.log('🔍 Query params:', window.location.search);
             
             // Method 1: Try to decode FUB's context query parameter
             const urlParams = new URLSearchParams(window.location.search);
@@ -715,9 +717,11 @@
             if (contextParam) {
                 try {
                     console.log('📦 Found context parameter, decoding...');
+                    console.log('📦 Raw context param (first 100 chars):', contextParam.substring(0, 100));
                     const contextJson = atob(contextParam);
+                    console.log('📦 Decoded JSON string:', contextJson);
                     const context = JSON.parse(contextJson);
-                    console.log('✅ Decoded FUB context:', context);
+                    console.log('✅ Parsed FUB context object:', JSON.stringify(context, null, 2));
                     
                     if (context && context.person && context.person.id) {
                         personId = context.person.id;
@@ -762,6 +766,15 @@
             }
             
             console.log('🎯 Final person_id:', personId);
+            console.log('🎯 Person_id type:', typeof personId);
+            
+            if (!personId) {
+                console.error('💥 CRITICAL: No person_id after all 3 methods!');
+                console.error('💥 window.location.href:', window.location.href);
+                console.error('💥 window.EmbeddedApps exists:', !!window.EmbeddedApps);
+                showError('❌ Unable to determine person ID. Check browser console for details.');
+                return;
+            }
 
             await loadPersonData();
             await loadHomebeatData();
