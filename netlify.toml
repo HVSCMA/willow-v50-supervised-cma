@@ -1,5 +1,5 @@
 [build]
-  command = "echo 'Functions already built, skipping build step'
+  command = "echo 'Functions already built, skipping build step'"
   publish = "."
   functions = "netlify/functions"
 
