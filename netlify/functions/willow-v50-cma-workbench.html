@@ -511,7 +511,14 @@
                 
                 <div class="form-group">
                     <label class="form-label">Property Address *</label>
-                    <input type="text" id="cmaAddress" class="form-input" placeholder="123 Main St, Huntington Beach, CA 92648">
+                    <input type="text" id="cmaAddress" class="form-input" placeholder="123 Main St, Poughkeepsie, NY 12601">
+                </div>
+
+                <div class="btn-group" style="margin-bottom: 20px;">
+                    <button type="button" class="btn btn-secondary" id="autoFillButton" onclick="autoFillPropertyData()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                        🔍 Auto-Fill Property Data (ATTOM)
+                    </button>
+                    <div id="attomSpinner" class="spinner" style="display: none; width: 20px; height: 20px; margin-left: 10px;"></div>
                 </div>
 
                 <div id="autoOptimizedParams" class="info-card">
@@ -703,6 +710,13 @@
         let personId = null;
         let personData = null;
         let homebeatData = null;
+
+        // ATTOM Integration State
+        const AttomState = {
+          loading: false,
+          lastLookup: null,
+          cacheEnabled: true
+        };
 
         // Initialize app
         window.addEventListener('DOMContentLoaded', async () => {
@@ -1332,6 +1346,260 @@
         function regenerateCMA() {
             alert('Regenerate CMA functionality coming soon.');
         }
+
+        // ========================================
+        // ATTOM DATA INTEGRATION
+        // ========================================
+
+        /**
+         * Auto-fill property data from ATTOM API
+         */
+        async function autoFillPropertyData() {
+          const addressInput = document.getElementById('cmaAddress');
+          const address = addressInput?.value?.trim();
+
+          if (!address) {
+            showAttomNotification('Please enter a property address first', 'warning');
+            addressInput?.focus();
+            return;
+          }
+
+          // Show loading state
+          setAttomLoadingState(true);
+          showAttomNotification('Looking up property details from ATTOM Data...', 'info');
+
+          try {
+            // Get person ID (already available from page context)
+            const contextPersonId = personId;
+
+            // Call ATTOM lookup function
+            const params = new URLSearchParams({
+              address: address,
+              ...(contextPersonId && { personId: contextPersonId })
+            });
+
+            const response = await fetch(`${API_BASE_URL}/.netlify/functions/attom-property-lookup?${params}`);
+            const result = await response.json();
+
+            if (!response.ok) {
+              throw new Error(result.message || 'Property lookup failed');
+            }
+
+            if (result.success && result.data) {
+              // Fill form fields with ATTOM data
+              fillPropertyFieldsFromAttom(result.data, result.source);
+              
+              // Show success message
+              const sourceLabel = result.cached ? 'cached data' : 'ATTOM Data API';
+              showAttomNotification(`✓ Property data loaded from ${sourceLabel}`, 'success');
+              
+              // Store for reference
+              AttomState.lastLookup = {
+                data: result.data,
+                source: result.source,
+                timestamp: new Date().toISOString(),
+                address: address
+              };
+            }
+
+          } catch (error) {
+            console.error('ATTOM lookup error:', error);
+            showAttomNotification(`Property lookup failed: ${error.message}. Try manual entry.`, 'error');
+            
+            // Fall back to smart defaults
+            if (confirm('Property not found in ATTOM database. Would you like to use Hudson Valley market defaults?')) {
+              fillPropertyFieldsFromAttom(getHudsonValleyDefaults(), 'MANUAL_DEFAULTS');
+              showAttomNotification('Using Hudson Valley market defaults', 'warning');
+            }
+          } finally {
+            setAttomLoadingState(false);
+          }
+        }
+
+        /**
+         * Fill form fields with property data from ATTOM
+         */
+        function fillPropertyFieldsFromAttom(data, source) {
+          // Map ATTOM data to existing form field IDs
+          const fieldMappings = {
+            'cmaBeds': data.beds,
+            'cmaBaths': data.baths,
+            'cmaSqft': data.sqft,
+            // Note: No acres or garage fields in current form
+            // Note: No lotSize, propertyType, yearBuilt, condition fields in current form
+          };
+
+          // Fill available fields
+          Object.entries(fieldMappings).forEach(([fieldId, value]) => {
+            setAttomFieldValue(fieldId, value);
+          });
+
+          // Add data source indicator to form
+          addAttomDataSourceIndicator(source);
+          
+          // Log the full data received for debugging
+          console.log('ATTOM Data Received:', data);
+          console.log('Fields not mapped (no form field exists):', {
+            acres: data.acres,
+            garage: data.garage,
+            propertyType: data.propertyType,
+            yearBuilt: data.yearBuilt,
+            condition: data.condition
+          });
+        }
+
+        /**
+         * Set field value with validation
+         */
+        function setAttomFieldValue(fieldId, value) {
+          const field = document.getElementById(fieldId);
+          if (field && value !== null && value !== undefined) {
+            field.value = value;
+            field.style.backgroundColor = '#f0fdf4'; // Light green background
+            field.style.borderColor = '#10b981'; // Green border
+            
+            // Trigger change event for any listeners
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+
+        /**
+         * Add visual indicator showing ATTOM data was used
+         */
+        function addAttomDataSourceIndicator(source) {
+          const container = document.getElementById('autoOptimizedParams');
+          
+          // Remove existing indicator
+          const existingIndicator = document.getElementById('attomSourceIndicator');
+          if (existingIndicator) existingIndicator.remove();
+
+          const sourceLabels = {
+            'ATTOM_API': '✓ Data from ATTOM Property Database',
+            'FUB_CACHE': '✓ Data from Follow Up Boss Cache',
+            'MANUAL_DEFAULTS': '⚠ Using Hudson Valley Market Defaults'
+          };
+
+          const sourceColors = {
+            'ATTOM_API': '#10b981',
+            'FUB_CACHE': '#3b82f6',
+            'MANUAL_DEFAULTS': '#f59e0b'
+          };
+
+          const indicator = document.createElement('div');
+          indicator.id = 'attomSourceIndicator';
+          indicator.style.cssText = `
+            background: ${sourceColors[source] || '#10b981'};
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+          `;
+          indicator.textContent = sourceLabels[source] || source;
+          
+          container?.appendChild(indicator);
+        }
+
+        /**
+         * Hudson Valley market defaults
+         */
+        function getHudsonValleyDefaults() {
+          return {
+            beds: 3,
+            baths: 2,
+            sqft: 1800,
+            acres: 0.25,
+            garage: 2,
+            propertyType: 'Single Family Residential',
+            yearBuilt: 1985,
+            condition: 'Average'
+          };
+        }
+
+        /**
+         * Set loading state for ATTOM lookup
+         */
+        function setAttomLoadingState(loading) {
+          AttomState.loading = loading;
+          
+          const lookupButton = document.getElementById('autoFillButton');
+          if (lookupButton) {
+            lookupButton.disabled = loading;
+            lookupButton.innerHTML = loading 
+              ? '🔍 Looking up... <div class="spinner" style="display: inline-block; width: 16px; height: 16px; margin-left: 5px; border-width: 2px;"></div>' 
+              : '🔍 Auto-Fill Property Data (ATTOM)';
+            lookupButton.style.opacity = loading ? '0.6' : '1';
+            lookupButton.style.cursor = loading ? 'not-allowed' : 'pointer';
+          }
+        }
+
+        /**
+         * Show notification message
+         */
+        function showAttomNotification(message, type = 'info') {
+          let notification = document.getElementById('attomNotification');
+          
+          if (!notification) {
+            // Create notification element
+            notification = document.createElement('div');
+            notification.id = 'attomNotification';
+            notification.style.cssText = `
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              max-width: 400px;
+              padding: 15px 20px;
+              border-radius: 8px;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+              font-size: 14px;
+              font-weight: 600;
+              z-index: 10000;
+              display: none;
+              animation: slideIn 0.3s ease-out;
+            `;
+            document.body.appendChild(notification);
+          }
+
+          const colors = {
+            info: { bg: '#3b82f6', text: 'white' },
+            success: { bg: '#10b981', text: 'white' },
+            warning: { bg: '#f59e0b', text: 'white' },
+            error: { bg: '#ef4444', text: 'white' }
+          };
+
+          const color = colors[type] || colors.info;
+          notification.style.backgroundColor = color.bg;
+          notification.style.color = color.text;
+          notification.textContent = message;
+          notification.style.display = 'block';
+
+          // Auto-hide after 5 seconds
+          setTimeout(() => {
+            notification.style.display = 'none';
+          }, 5000);
+        }
+
+        // Add slide-in animation
+        const style = document.createElement('style');
+        style.textContent = `
+          @keyframes slideIn {
+            from {
+              transform: translateX(400px);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+          .auto-filled {
+            background-color: #f0fdf4 !important;
+            border-color: #10b981 !important;
+          }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
