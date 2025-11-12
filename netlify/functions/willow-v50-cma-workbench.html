@@ -855,6 +855,15 @@
                 const score = data.customWILLOWBehavioralScoreV40 || 50;
                 document.getElementById('behavioralScore').textContent = `${score}/100`;
                 
+                // Prepopulate address field from customWILLOW_PropertyAddress
+                const propertyAddress = data.customWILLOW_PropertyAddress || '';
+                if (propertyAddress) {
+                    console.log('📍 Prepopulating address from FUB:', propertyAddress);
+                    document.getElementById('cmaAddress').value = propertyAddress;
+                } else {
+                    console.log('⚠️ No customWILLOW_PropertyAddress found in FUB data');
+                }
+                
                 // Auto-optimize parameters based on score
                 optimizeCMAParameters(score);
                 
