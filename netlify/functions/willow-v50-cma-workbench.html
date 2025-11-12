@@ -805,11 +805,31 @@
 
         // Load person data from FUB
         async function loadPersonData() {
+            console.log('📡 loadPersonData() called with person_id:', personId);
+            
+            // Validate personId before making API call
+            if (!personId || personId === 'null' || personId === 'undefined') {
+                console.error('❌ Invalid person_id:', personId);
+                document.getElementById('existingCMA').innerHTML = `
+                    <div class="error">❌ Invalid person ID. Unable to load data.</div>
+                `;
+                showError('Invalid person ID: ' + personId);
+                return;
+            }
+            
             try {
+                console.log('🌐 Fetching person data from API...');
                 const response = await fetch(`${API_BASE_URL}/.netlify/functions/willow-cma-workbench?action=getPersonData&personId=${personId}`);
+                console.log('📥 API response status:', response.status);
+                
                 const data = await response.json();
+                console.log('📦 API response data:', data);
                 
                 if (data.error) {
+                    console.error('❌ API returned error:', data.error);
+                    document.getElementById('existingCMA').innerHTML = `
+                        <div class="error">Error: ${data.error}</div>
+                    `;
                     showError(data.error);
                     return;
                 }
@@ -828,6 +848,10 @@
                 displayExistingCMA(data);
                 
             } catch (error) {
+                console.error('💥 Exception in loadPersonData():', error);
+                document.getElementById('existingCMA').innerHTML = `
+                    <div class="error">Failed to load person data: ${error.message}</div>
+                `;
                 showError('Failed to load person data: ' + error.message);
             }
         }
