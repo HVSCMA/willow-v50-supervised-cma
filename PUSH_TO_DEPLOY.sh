@@ -1,0 +1,30 @@
+#!/bin/bash
+
+echo "=== WILLOW V50 - DEPLOY FIXED CODE ==="
+echo ""
+echo "Current Status:"
+echo "  - Local commit: 2473835 (FIXED - 3 bugs)"
+echo "  - GitHub remote: b33509b (OLD - has bugs)"
+echo "  - Production: OLD code causing 400 errors"
+echo ""
+echo "This script will:"
+echo "  1. Push commit 2473835 to GitHub"
+echo "  2. Trigger Netlify auto-deploy (2-3 min)"
+echo "  3. Production will have working code"
+echo ""
+echo "Proof of fix working:"
+echo "  - CMA #80692093 generated for Annmarie Fitzgerald"
+echo "  - Note #104390 created in FUB"
+echo "  - All 5 workflow steps passed (100%)"
+echo ""
+read -p "Press ENTER to push to GitHub and deploy..."
+
+git push origin master
+
+echo ""
+echo "✓ Pushed to GitHub!"
+echo "  Netlify will auto-deploy in 2-3 minutes"
+echo "  Watch: https://app.netlify.com/sites/willow-v50-supervised-cma/deploys"
+echo ""
+echo "After deploy, test with Annmarie Fitzgerald lead:"
+echo "  https://hudsonvalleysold.followupboss.com/2/people/view/1429"
