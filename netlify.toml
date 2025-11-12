@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npm run build"
+  command = "npm install --production"
   publish = "."
   functions = "netlify/functions"
 
@@ -13,33 +13,13 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    # CRITICAL: Remove X-Frame-Options for FUB compliance
     X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    # NO X-Frame-Options header (causes FUB CORS failure)
-
-[[headers]]
-  for = "/willow-app"
-  [headers.values]
-    # Ensure iframe compatibility for FUB
-    Content-Security-Policy = "frame-ancestors 'self' https://app.followupboss.com https://*.followupboss.com"
-    Access-Control-Allow-Origin = "*"
 
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
-    # Function headers for FUB compatibility
     Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-
-# Redirects removed - FUB should call function URL directly:
-# https://willow-v50-supervised-cma.netlify.app/.netlify/functions/willow-app
-
-# Environment variables configured in build.environment section above
-# Also set in Netlify dashboard for runtime:
-# FUB_API_KEY = "fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj"
-# FUB_SECRET_KEY = "f1e0c6af664bc1525ecd8fecba255235"
-# CLOUDCMA_API_KEY = "742f4a46e1780904da090d721a9bae7b"
-  ATTOM_API_KEY = "83d56a0076ca0aeefd240b3d397ce708"
+    Access-Control-Allow-Headers = "Content-Type"
