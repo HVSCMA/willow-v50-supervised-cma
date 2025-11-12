@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npm run build"
+  command = "echo 'Functions already built, skipping build step'
   publish = "."
   functions = "netlify/functions"
 
@@ -8,6 +8,7 @@
   FUB_API_KEY = "fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj"
   FUB_SECRET_KEY = "f1e0c6af664bc1525ecd8fecba255235"
   CLOUDCMA_API_KEY = "742f4a46e1780904da090d721a9bae7b"
+  ATTOM_API_KEY = "83d56a0076ca0aeefd240b3d397ce708"
 
 [[headers]]
   for = "/*"
@@ -41,3 +42,4 @@
 # FUB_API_KEY = "fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj"
 # FUB_SECRET_KEY = "f1e0c6af664bc1525ecd8fecba255235"
 # CLOUDCMA_API_KEY = "742f4a46e1780904da090d721a9bae7b"
+  ATTOM_API_KEY = "83d56a0076ca0aeefd240b3d397ce708"
