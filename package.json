@@ -10,5 +10,7 @@
   "keywords": ["willow", "cma", "followupboss", "cloudcma", "real-estate"],
   "author": "Glenn Fitzgerald",
   "license": "ISC",
-  "dependencies": {}
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
 }
