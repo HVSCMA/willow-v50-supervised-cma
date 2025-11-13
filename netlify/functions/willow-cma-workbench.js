@@ -172,11 +172,20 @@ async function generateCMA(params, headers) {
 
         await fubAPIRequest('PUT', `/v1/people/${personId}`, updatePayload);
 
-        // Create FUB activity
-        await fubAPIRequest('POST', '/v1/events', {
-            person: { id: parseInt(personId) },
-            type: 'Note',
-            body: `CMA generated for ${address}. Parameters: ${beds}bd/${baths}ba, ${sqft}sqft, ${radius}mi radius, ${monthsBack}mo back.`
+        // Create FUB activity note (using Notes API for proper timeline visibility)
+        await fubAPIRequest('POST', '/v1/notes', {
+            personId: parseInt(personId),
+            subject: '🎯 WILLOW V50: CMA Generated',
+            body: `CMA generated for ${address}
+
+Template: ${params.template || 'Standard'}
+Parameters: ${beds || 'auto'}bd/${baths || 'auto'}ba, ${sqft || 'auto'}sqft
+Search: ${radius || '0.75'}mi radius, ${monthsBack || '9'} months back, min ${minListings || '10'} comps
+
+CloudCMA URL: ${cmaUrl}
+
+${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`,
+            isExternal: true
         });
 
         let homebeatUrl = null;
@@ -218,11 +227,17 @@ async function generateCMA(params, headers) {
                     customWILLOWHomebeatFirstSendDate: new Date().toISOString()
                 });
 
-                // Create FUB activity for Homebeat
-                await fubAPIRequest('POST', '/v1/events', {
-                    person: { id: parseInt(personId) },
-                    type: 'Note',
-                    body: `Homebeat subscription created for ${address}. Frequency: ${homebeatFrequency}. Lead will receive automated market updates.`
+                // Create FUB activity note for Homebeat (using Notes API)
+                await fubAPIRequest('POST', '/v1/notes', {
+                    personId: parseInt(personId),
+                    subject: '🏠 WILLOW V50: Homebeat Created',
+                    body: `Homebeat subscription created for ${address}
+
+Frequency: ${homebeatFrequency || 'quarterly'}
+Homebeat URL: ${homebeatUrl}
+
+Lead will receive automated market updates with property value estimates and neighborhood insights.`,
+                    isExternal: true
                 });
 
             } catch (homebeatError) {
@@ -377,10 +392,17 @@ async function resendHomebeat(params, headers) {
             customWILLOWHomebeatLastResend: new Date().toISOString()
         });
 
-        await fubAPIRequest('POST', '/v1/events', {
-            person: { id: parseInt(personId) },
-            type: 'Note',
-            body: `Homebeat resent for ${homebeat.property_address}. Status was pending (0 views). Manual resend triggered.`
+        // Create FUB activity note for Homebeat resend (using Notes API)
+        await fubAPIRequest('POST', '/v1/notes', {
+            personId: parseInt(personId),
+            subject: '🔁 WILLOW V50: Homebeat Resent',
+            body: `Homebeat resent for ${homebeat.property_address}
+
+Previous Status: Pending (0 views)
+Action: Manual resend triggered
+
+Lead will receive a new Homebeat welcome email with the latest market data.`,
+            isExternal: true
         });
 
         return {
