@@ -174,7 +174,7 @@ async function generateCMA(params, headers) {
 
         // Create FUB activity
         await fubAPIRequest('POST', '/v1/events', {
-            person_id: parseInt(personId),
+            person: { id: parseInt(personId) },
             type: 'Note',
             body: `CMA generated for ${address}. Parameters: ${beds}bd/${baths}ba, ${sqft}sqft, ${radius}mi radius, ${monthsBack}mo back.`
         });
@@ -220,7 +220,7 @@ async function generateCMA(params, headers) {
 
                 // Create FUB activity for Homebeat
                 await fubAPIRequest('POST', '/v1/events', {
-                    person_id: parseInt(personId),
+                    person: { id: parseInt(personId) },
                     type: 'Note',
                     body: `Homebeat subscription created for ${address}. Frequency: ${homebeatFrequency}. Lead will receive automated market updates.`
                 });
@@ -378,7 +378,7 @@ async function resendHomebeat(params, headers) {
         });
 
         await fubAPIRequest('POST', '/v1/events', {
-            person_id: parseInt(personId),
+            person: { id: parseInt(personId) },
             type: 'Note',
             body: `Homebeat resent for ${homebeat.property_address}. Status was pending (0 views). Manual resend triggered.`
         });
