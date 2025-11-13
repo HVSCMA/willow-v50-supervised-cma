@@ -85,6 +85,15 @@ exports.handler = async (event, context) => {
 // Get person data from FUB
 async function getPersonData(personId, headers) {
     try {
+        // Validate personId
+        if (!personId || personId === 'null' || personId === 'undefined') {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing person_id parameter' })
+            };
+        }
+        
         const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
         
         return {
@@ -118,6 +127,21 @@ async function generateCMA(params, headers) {
             createHomebeat,
             homebeatFrequency
         } = params;
+
+        // CRITICAL: Validate personId exists
+        if (!personId || personId === 'null' || personId === 'undefined') {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Missing person_id. FUB context parameter not decoded correctly.',
+                    debug: {
+                        personId: personId,
+                        allParams: Object.keys(params)
+                    }
+                })
+            };
+        }
 
         // Get person data for lead info
         const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
@@ -229,6 +253,15 @@ async function generateCMA(params, headers) {
 // Get Homebeat data from CloudCMA
 async function getHomebeatData(personId, headers) {
     try {
+        // Validate personId
+        if (!personId || personId === 'null' || personId === 'undefined') {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing person_id parameter' })
+            };
+        }
+        
         // Try to fetch homebeat data, but gracefully handle CloudCMA auth failures
         let homebeatReport = [];
         try {
@@ -301,6 +334,15 @@ async function resendHomebeat(params, headers) {
     try {
         const { homebeatId, personId } = params;
 
+        // Validate personId
+        if (!personId || personId === 'null' || personId === 'undefined') {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing person_id parameter' })
+            };
+        }
+
         const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
         
         const homebeatReport = await cloudCMAAPIRequest('GET', `/homebeats/report?api_key=${CLOUDCMA_API_KEY}&format=json`);
@@ -361,6 +403,15 @@ async function createTask(params, headers) {
     try {
         const { personId, taskDescription, urgency, assignedTo } = params;
 
+        // Validate personId
+        if (!personId || personId === 'null' || personId === 'undefined') {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing person_id parameter' })
+            };
+        }
+
         const now = new Date();
         let dueDate = new Date(now);
         
@@ -419,6 +470,15 @@ async function createTask(params, headers) {
 async function createManualAction(params, headers) {
     try {
         const { personId, actionType, assignedTo, urgency, notes } = params;
+
+        // Validate personId
+        if (!personId || personId === 'null' || personId === 'undefined') {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing person_id parameter' })
+            };
+        }
 
         const now = new Date();
         let dueDate = new Date(now);
