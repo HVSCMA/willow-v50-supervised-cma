@@ -184,8 +184,7 @@ Search: ${radius || '0.75'}mi radius, ${monthsBack || '9'} months back, min ${mi
 
 CloudCMA URL: ${cmaUrl}
 
-${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`,
-            isExternal: true
+${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`
         });
 
         let homebeatUrl = null;
@@ -236,8 +235,7 @@ ${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`,
 Frequency: ${homebeatFrequency || 'quarterly'}
 Homebeat URL: ${homebeatUrl}
 
-Lead will receive automated market updates with property value estimates and neighborhood insights.`,
-                    isExternal: true
+Lead will receive automated market updates with property value estimates and neighborhood insights.`
                 });
 
             } catch (homebeatError) {
@@ -401,8 +399,7 @@ async function resendHomebeat(params, headers) {
 Previous Status: Pending (0 views)
 Action: Manual resend triggered
 
-Lead will receive a new Homebeat welcome email with the latest market data.`,
-            isExternal: true
+Lead will receive a new Homebeat welcome email with the latest market data.`
         });
 
         return {
