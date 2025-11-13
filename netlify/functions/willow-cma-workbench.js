@@ -218,7 +218,7 @@ ${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`
 
                 const homebeatResponse = await cloudCMAAPIRequest('POST', '/homebeats/widget', homebeatPayload);
                 homebeatCreated = true;
-                homebeatUrl = homebeatResponse.homebeat_url || null;
+                homebeatUrl = homebeatResponse.url || null;  // CloudCMA returns 'url' not 'homebeat_url'
 
                 // Update FUB with Homebeat info
                 await fubAPIRequest('PUT', `/v1/people/${personId}`, {
