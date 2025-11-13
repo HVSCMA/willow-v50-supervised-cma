@@ -623,10 +623,8 @@ function cloudCMAAPIRequest(method, path, data = null) {
             path: path,
             method: method,
             headers: {
-                'Authorization': `Bearer ${CLOUDCMA_API_KEY}`,
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'WILLOW-V50/1.0'
+                'Accept': 'application/json'
             }
         };
 
