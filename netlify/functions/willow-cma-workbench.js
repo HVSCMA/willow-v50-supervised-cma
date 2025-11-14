@@ -1,7 +1,8 @@
 // WILLOW V50 CMA Workbench - Complete Netlify Function
-// Purpose: Server-side FUB/CloudCMA API integration with HTML serving, FUB Context Processing, and Attom Property Data Enhancement
+// Purpose: Server-side FUB/CloudCMA API integration with HTML serving, FUB Context Processing, Attom Property Data Enhancement, and Intelligent Caching
 
 const https = require('https');
+const crypto = require('crypto');
 
 // API Credentials
 const FUB_API_KEY = process.env.FUB_API_KEY || 'fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj';
@@ -11,6 +12,10 @@ const WEBHOOK_URL = 'https://willow-v50-supervised-cma.netlify.app/.netlify/func
 
 // Glenn's Center Range Protocol Configuration
 const CENTER_RANGE_MULTIPLIER = 1.024; // Configurable multiplier factor
+
+// Attom Data Caching Configuration (Glenn's 6-month requirement)
+const CACHE_DURATION_MS = 180 * 24 * 60 * 60 * 1000; // 6 months in milliseconds
+const CACHE_VERSION = 'v1'; // For cache invalidation when structure changes
 
 exports.handler = async (event, context) => {
     // CORS headers
@@ -91,7 +96,7 @@ exports.handler = async (event, context) => {
                 return await getPersonData(params.personId, headers);
             
             case 'generateCMA':
-                return await generateCMA(params, headers);
+                return await generateOptimalCMA(params, headers);
             
             case 'getHomebeatData':
                 return await getHomebeatData(params.personId, headers);
@@ -109,7 +114,7 @@ exports.handler = async (event, context) => {
                 return await getMarketValue(params.address, headers);
             
             case 'getPropertyDetails':
-                return await getPropertyDetails(params.address, headers);
+                return await getPropertyDetailsWithCache(params.address, params.personId, params.forceRefresh, headers);
             
             default:
                 return {
@@ -129,8 +134,17 @@ exports.handler = async (event, context) => {
     }
 };
 
-// Get comprehensive property details from Attom API
-async function getPropertyDetails(address, headers) {
+// Generate cache key from normalized address
+function generateCacheKey(address) {
+    const normalized = address.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return crypto.createHash('sha256').update(`${CACHE_VERSION}:${normalized}`).digest('hex').substring(0, 16);
+}
+
+// Get comprehensive property details with intelligent caching
+async function getPropertyDetailsWithCache(address, personId, forceRefresh, headers) {
     try {
         if (!address) {
             return {
@@ -140,13 +154,83 @@ async function getPropertyDetails(address, headers) {
             };
         }
 
-        const propertyData = await attomPropertySearch(address);
+        const cacheKey = generateCacheKey(address);
+        let cachedData = null;
+        let cacheAge = null;
+        let cacheSource = 'fresh';
+
+        // Check for cached data in FUB if personId provided (unless force refresh)
+        if (personId && !forceRefresh) {
+            try {
+                const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
+                const cacheField = `customWILLOWAttomCache${cacheKey}`;
+                const cacheTimestampField = `customWILLOWAttomCacheTime${cacheKey}`;
+                
+                if (personData[cacheField] && personData[cacheTimestampField]) {
+                    const cacheTimestamp = new Date(personData[cacheTimestampField]).getTime();
+                    const now = Date.now();
+                    cacheAge = now - cacheTimestamp;
+                    
+                    // Check if cache is within 6-month window
+                    if (cacheAge < CACHE_DURATION_MS) {
+                        try {
+                            cachedData = JSON.parse(personData[cacheField]);
+                            cacheSource = 'cached';
+                            console.log(`WILLOW V50: Using cached Attom data for ${address} (age: ${Math.round(cacheAge / (24 * 60 * 60 * 1000))} days)`);
+                        } catch (parseError) {
+                            console.warn('Failed to parse cached Attom data:', parseError.message);
+                        }
+                    } else {
+                        console.log(`WILLOW V50: Attom cache expired for ${address} (age: ${Math.round(cacheAge / (24 * 60 * 60 * 1000))} days > 180 days)`);
+                    }
+                }
+            } catch (cacheError) {
+                console.warn('Cache retrieval failed:', cacheError.message);
+            }
+        }
+
+        // Fetch fresh data if no valid cache or force refresh
+        if (!cachedData || forceRefresh) {
+            console.log(`WILLOW V50: Fetching fresh Attom data for ${address}${forceRefresh ? ' (force refresh)' : ''}`);
+            cachedData = await attomPropertySearch(address);
+            cacheSource = 'fresh';
+            
+            if (cachedData && personId) {
+                // Cache the fresh data in FUB custom fields
+                try {
+                    const cacheField = `customWILLOWAttomCache${cacheKey}`;
+                    const cacheTimestampField = `customWILLOWAttomCacheTime${cacheKey}`;
+                    
+                    const cacheUpdate = {
+                        [cacheField]: JSON.stringify(cachedData),
+                        [cacheTimestampField]: new Date().toISOString()
+                    };
+                    
+                    await fubAPIRequest('PUT', `/v1/people/${personId}`, cacheUpdate);
+                    console.log(`WILLOW V50: Cached Attom data for ${address} (6-month expiry)`);
+                } catch (cacheStorageError) {
+                    console.warn('Failed to cache Attom data:', cacheStorageError.message);
+                }
+            }
+        }
         
-        if (propertyData) {
+        if (cachedData) {
+            // Enhance response with cache metadata
+            const response = {
+                ...cachedData,
+                _cache: {
+                    source: cacheSource,
+                    age_days: cacheAge ? Math.round(cacheAge / (24 * 60 * 60 * 1000)) : 0,
+                    expires_in_days: cacheAge ? Math.max(0, 180 - Math.round(cacheAge / (24 * 60 * 60 * 1000))) : 180,
+                    cache_key: cacheKey,
+                    force_refresh_available: !!personId
+                }
+            };
+            
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify(propertyData)
+                body: JSON.stringify(response)
             };
         } else {
             return {
@@ -154,7 +238,8 @@ async function getPropertyDetails(address, headers) {
                 headers,
                 body: JSON.stringify({ 
                     error: 'Property data not found',
-                    message: 'No property details available for this address'
+                    message: 'No property details available for this address in Attom database',
+                    cache_key: cacheKey
                 })
             };
         }
@@ -167,7 +252,7 @@ async function getPropertyDetails(address, headers) {
     }
 }
 
-// Attom API Property Search
+// Attom API Property Search with enhanced error handling
 async function attomPropertySearch(address) {
     return new Promise((resolve, reject) => {
         const options = {
@@ -191,7 +276,7 @@ async function attomPropertySearch(address) {
                         const property = data.property?.[0];
                         
                         if (property) {
-                            // Extract comprehensive property details for CMA enhancement
+                            // Extract comprehensive property details for optimal CMA enhancement
                             const details = {
                                 // Basic property information
                                 address: property.address?.oneLine || address,
@@ -204,17 +289,18 @@ async function attomPropertySearch(address) {
                                 
                                 // Lot information
                                 lotSqft: property.lot?.lotsize1 || null,
-                                acres: property.lot?.lotsize1 ? (property.lot.lotsize1 / 43560).toFixed(2) : null,
+                                acres: property.lot?.lotsize1 ? (property.lot.lotsize1 / 43560).toFixed(4) : null,
                                 
-                                // Additional features
+                                // Additional features for optimal CMA
                                 garageSpaces: property.building?.parking?.garagespaces || property.building?.parking?.carportspaces || null,
                                 yearBuilt: property.summary?.yearbuilt || null,
+                                stories: property.building?.summary?.stories || null,
                                 
                                 // Location data for precise CMA
                                 latitude: property.location?.latitude || null,
                                 longitude: property.location?.longitude || null,
                                 
-                                // Property classification
+                                // Property classification for CloudCMA
                                 propClass: property.summary?.propclass || 'Residential',
                                 propSubType: property.summary?.propsubtype || 'Single Family Residence',
                                 
@@ -225,16 +311,27 @@ async function attomPropertySearch(address) {
                                 // Assessment data
                                 assessedValue: property.assessment?.assessed?.assdtotal || null,
                                 marketValue: property.assessment?.market?.mktttl || null,
+                                taxes: property.assessment?.tax?.taxyear ? property.assessment.tax.taxamt : null,
                                 
-                                // Additional CMA enhancement fields
-                                stories: property.building?.summary?.stories || null,
+                                // Additional CloudCMA enhancement fields
                                 basement: property.building?.basement?.bsmttype || null,
                                 fireplace: property.building?.interior?.fireplaces || null,
                                 pool: property.building?.summary?.pool || null,
                                 
-                                // Data source metadata
+                                // Construction details
+                                construction: property.building?.construction?.walltype || null,
+                                roofing: property.building?.construction?.rooftype || null,
+                                heating: property.building?.utilities?.heatingtype || null,
+                                cooling: property.building?.utilities?.coolingtype || null,
+                                
+                                // Lot details
+                                lotDescription: property.lot?.lotdesc || null,
+                                zoning: property.lot?.zoning || null,
+                                
+                                // Data source metadata for audit trail
                                 attomId: property.identifier?.attomId || null,
-                                parcelNumber: property.identifier?.parcelnumber || null
+                                parcelNumber: property.identifier?.parcelnumber || null,
+                                dataFreshness: new Date().toISOString()
                             };
 
                             // Clean up null values and format numbers
@@ -398,6 +495,12 @@ function generateHTML(prefilledAddress = '', personId = null) {
             gap: 15px;
         }
 
+        .form-row-5 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
         label {
             display: block;
             margin-bottom: 8px;
@@ -465,6 +568,17 @@ function generateHTML(prefilledAddress = '', personId = null) {
 
         .btn-secondary:hover {
             background: #dd6b20;
+        }
+
+        .btn-refresh {
+            background: #38a169;
+            margin-top: 5px;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
+        .btn-refresh:hover {
+            background: #2f855a;
         }
 
         .status {
@@ -600,8 +714,27 @@ function generateHTML(prefilledAddress = '', personId = null) {
             margin: 0;
         }
 
+        .cache-info {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .cache-info.show {
+            display: block;
+        }
+
+        .cache-info h5 {
+            color: #742a2a;
+            margin-bottom: 8px;
+        }
+
         @media (max-width: 768px) {
-            .form-row, .form-row-3, .form-row-4 {
+            .form-row, .form-row-3, .form-row-4, .form-row-5 {
                 grid-template-columns: 1fr;
             }
             
@@ -615,11 +748,11 @@ function generateHTML(prefilledAddress = '', personId = null) {
     <div class="container">
         <div class="header">
             <h1>WILLOW V50 - CMA Workbench</h1>
-            <div class="subtitle">Comprehensive Market Analysis & Lead Intelligence System with Attom Property Enhancement</div>
+            <div class="subtitle">Optimal CloudCMA Generation with Attom Property Enhancement & Intelligent 6-Month Caching</div>
         </div>
 
         <div class="tabs">
-            <button class="tab-button active" onclick="switchTab('cma')">Generate CMA</button>
+            <button class="tab-button active" onclick="switchTab('cma')">Optimal CMA Generator</button>
             <button class="tab-button" onclick="switchTab('homebeat')">Homebeat Manager</button>
             <button class="tab-button" onclick="switchTab('intelligence')">Lead Intelligence</button>
         </div>
@@ -634,8 +767,8 @@ function generateHTML(prefilledAddress = '', personId = null) {
                     </div>
 
                     <div class="enhancement-box">
-                        <h4>🏠 Attom Property Enhancement</h4>
-                        <p>Enter address and click "Auto-Fill Property Details" to populate beds, baths, sqft, lot size, garage spaces, coordinates, and property type from comprehensive property database for optimal CMA accuracy.</p>
+                        <h4>🏠 Optimal CloudCMA Enhancement with Attom Intelligence</h4>
+                        <p>Enter address and click "Auto-Fill Property Details" to populate comprehensive property data from Attom database. Data is cached for 6 months for instant access. Uses CloudCMA Widget API for maximum parameter utilization.</p>
                     </div>
 
                     <div class="form-group">
@@ -644,11 +777,21 @@ function generateHTML(prefilledAddress = '', personId = null) {
                                placeholder="123 Main St, City, State, ZIP">
                     </div>
 
-                    <button type="button" class="btn btn-secondary" onclick="autoFillPropertyDetails()">
-                        🔍 Auto-Fill Property Details from Attom Database
-                    </button>
+                    <div class="form-row">
+                        <button type="button" class="btn btn-secondary" onclick="autoFillPropertyDetails()">
+                            🔍 Auto-Fill Property Details from Attom Database
+                        </button>
+                        <button type="button" class="btn btn-refresh" onclick="autoFillPropertyDetails(true)" style="display:none;" id="force-refresh-btn">
+                            🔄 Force Refresh (Bypass Cache)
+                        </button>
+                    </div>
 
-                    <div class="form-row-4">
+                    <div id="cache-info" class="cache-info">
+                        <h5>📊 Cache Information</h5>
+                        <p id="cache-details"></p>
+                    </div>
+
+                    <div class="form-row-5">
                         <div class="form-group">
                             <label for="beds">Bedrooms</label>
                             <input type="number" id="beds" name="beds" placeholder="Auto-detect">
@@ -665,12 +808,16 @@ function generateHTML(prefilledAddress = '', personId = null) {
                             <label for="garage_spaces">Garage Spaces</label>
                             <input type="number" id="garage_spaces" name="garage_spaces" placeholder="Auto-detect">
                         </div>
+                        <div class="form-group">
+                            <label for="taxes">Annual Taxes</label>
+                            <input type="number" id="taxes" name="taxes" placeholder="Auto-detect">
+                        </div>
                     </div>
 
-                    <div class="form-row-3">
+                    <div class="form-row-4">
                         <div class="form-group">
                             <label for="acres">Lot Size (Acres)</label>
-                            <input type="number" step="0.01" id="acres" name="acres" placeholder="Auto-detect">
+                            <input type="number" step="0.0001" id="acres" name="acres" placeholder="Auto-detect">
                         </div>
                         <div class="form-group">
                             <label for="year_built">Year Built</label>
@@ -680,20 +827,28 @@ function generateHTML(prefilledAddress = '', personId = null) {
                             <label for="stories">Stories</label>
                             <input type="number" step="0.5" id="stories" name="stories" placeholder="Auto-detect">
                         </div>
+                        <div class="form-group">
+                            <label for="pool">Pool</label>
+                            <select id="pool" name="pool">
+                                <option value="">Auto-detect</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="latitude">Latitude</label>
+                            <label for="latitude">Latitude (GPS)</label>
                             <input type="number" step="0.000001" id="latitude" name="latitude" placeholder="Auto-detect">
                         </div>
                         <div class="form-group">
-                            <label for="longitude">Longitude</label>
+                            <label for="longitude">Longitude (GPS)</label>
                             <input type="number" step="0.000001" id="longitude" name="longitude" placeholder="Auto-detect">
                         </div>
                     </div>
 
-                    <div class="form-row-3">
+                    <div class="form-row-4">
                         <div class="form-group">
                             <label for="radius">Search Radius (miles)</label>
                             <select id="radius" name="radius">
@@ -712,6 +867,7 @@ function generateHTML(prefilledAddress = '', personId = null) {
                                 <option value="6">6 months</option>
                                 <option value="9" selected>9 months</option>
                                 <option value="12">12 months</option>
+                                <option value="18">18 months</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -723,6 +879,16 @@ function generateHTML(prefilledAddress = '', personId = null) {
                                 <option value="20">20 listings</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="template">CMA Template</label>
+                            <select id="template" name="template">
+                                <option value="">Default Template</option>
+                                <option value="Professional">Professional</option>
+                                <option value="Luxury">Luxury Properties</option>
+                                <option value="Investment">Investment Analysis</option>
+                                <option value="First Time Buyer">First Time Buyer</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-row">
@@ -730,23 +896,30 @@ function generateHTML(prefilledAddress = '', personId = null) {
                             <label for="prop_type">Property Type</label>
                             <select id="prop_type" name="prop_type">
                                 <option value="">Auto-detect</option>
-                                <option value="single_family">Single Family</option>
-                                <option value="condo">Condo</option>
-                                <option value="townhome">Townhome</option>
-                                <option value="multi_family">Multi-Family</option>
-                                <option value="land">Land</option>
-                                <option value="commercial">Commercial</option>
+                                <option value="Residential">Residential</option>
+                                <option value="Single Family">Single Family</option>
+                                <option value="Condo">Condo</option>
+                                <option value="Townhome">Townhome</option>
+                                <option value="Multi Family">Multi-Family</option>
+                                <option value="Land">Land</option>
+                                <option value="Commercial">Commercial</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="title">Report Title</label>
-                            <input type="text" id="title" name="title" placeholder="Auto-generate">
+                            <input type="text" id="title" name="title" placeholder="Auto-generate from client name">
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="headline">Report Headline</label>
+                        <input type="text" id="headline" name="headline" placeholder="Professional Market Analysis" 
+                               value="Professional Market Analysis">
                     </div>
 
                     <div class="checkbox-group">
                         <input type="checkbox" id="create_homebeat" name="create_homebeat">
-                        <label for="create_homebeat">Create Homebeat Subscription</label>
+                        <label for="create_homebeat">Create Enhanced Homebeat Subscription</label>
                     </div>
 
                     <div id="homebeat_options" style="display: none; margin-top: 15px;">
@@ -756,17 +929,18 @@ function generateHTML(prefilledAddress = '', personId = null) {
                                 <option value="monthly">Monthly</option>
                                 <option value="quarterly" selected>Quarterly</option>
                                 <option value="semi_annually">Semi-Annually</option>
+                                <option value="annually">Annually</option>
                             </select>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn">Generate Enhanced CMA Report</button>
+                    <button type="submit" class="btn">Generate Optimal CMA Report</button>
                 </form>
 
                 <div id="cma-status" class="status"></div>
                 <div id="cma-loading" class="loading">
                     <div class="spinner"></div>
-                    <div>Generating enhanced CMA report...</div>
+                    <div>Generating optimal CMA report...</div>
                 </div>
             </div>
         </div>
@@ -809,8 +983,9 @@ function generateHTML(prefilledAddress = '', personId = null) {
     </div>
 
     <script>
-        // Global variables - Store person ID from FUB context
+        // Global variables - Store person ID from FUB context and cache info
         let currentPersonId = ${personId ? `"${personId}"` : 'null'};
+        let currentCacheInfo = null;
         
         // Initialize FUB SDK
         document.addEventListener('DOMContentLoaded', function() {
@@ -823,8 +998,8 @@ function generateHTML(prefilledAddress = '', personId = null) {
             }
         });
 
-        // Auto-fill property details from Attom API
-        async function autoFillPropertyDetails() {
+        // Auto-fill property details from Attom API with intelligent caching
+        async function autoFillPropertyDetails(forceRefresh = false) {
             const address = document.getElementById('address').value.trim();
             
             if (!address) {
@@ -834,32 +1009,51 @@ function generateHTML(prefilledAddress = '', personId = null) {
             
             showLoading('cma');
             hideStatus('cma');
+            hideCacheInfo();
             
             try {
-                const response = await fetch(\`\${window.location.href}?action=getPropertyDetails&address=\${encodeURIComponent(address)}\`);
+                const params = new URLSearchParams({
+                    action: 'getPropertyDetails',
+                    address: address
+                });
+                
+                if (currentPersonId) params.append('personId', currentPersonId);
+                if (forceRefresh) params.append('forceRefresh', 'true');
+                
+                const response = await fetch(\`\${window.location.href}?\${params.toString()}\`);
                 const result = await response.json();
                 hideLoading('cma');
                 
                 if (response.ok && result) {
+                    // Store cache info
+                    currentCacheInfo = result._cache;
+                    
                     // Populate form fields with Attom data
                     if (result.beds) document.getElementById('beds').value = result.beds;
                     if (result.baths) document.getElementById('baths').value = result.baths;
                     if (result.sqft) document.getElementById('sqft').value = result.sqft;
                     if (result.garageSpaces) document.getElementById('garage_spaces').value = result.garageSpaces;
+                    if (result.taxes) document.getElementById('taxes').value = result.taxes;
                     if (result.acres) document.getElementById('acres').value = result.acres;
                     if (result.yearBuilt) document.getElementById('year_built').value = result.yearBuilt;
                     if (result.stories) document.getElementById('stories').value = result.stories;
                     if (result.latitude) document.getElementById('latitude').value = result.latitude;
                     if (result.longitude) document.getElementById('longitude').value = result.longitude;
+                    if (result.pool) document.getElementById('pool').value = result.pool === 'Y' ? 'yes' : 'no';
                     
                     // Set property type based on Attom classification
                     const propTypeSelect = document.getElementById('prop_type');
-                    if (result.propertyType && result.propertyType.toLowerCase().includes('single')) {
-                        propTypeSelect.value = 'single_family';
-                    } else if (result.propertyType && result.propertyType.toLowerCase().includes('condo')) {
-                        propTypeSelect.value = 'condo';
-                    } else if (result.propertyType && result.propertyType.toLowerCase().includes('town')) {
-                        propTypeSelect.value = 'townhome';
+                    if (result.propertyType) {
+                        const type = result.propertyType.toLowerCase();
+                        if (type.includes('single')) {
+                            propTypeSelect.value = 'Single Family';
+                        } else if (type.includes('condo')) {
+                            propTypeSelect.value = 'Condo';
+                        } else if (type.includes('town')) {
+                            propTypeSelect.value = 'Townhome';
+                        } else {
+                            propTypeSelect.value = 'Residential';
+                        }
                     }
                     
                     let populatedFields = [];
@@ -869,8 +1063,23 @@ function generateHTML(prefilledAddress = '', personId = null) {
                     if (result.acres) populatedFields.push(\`\${result.acres} acres\`);
                     if (result.garageSpaces) populatedFields.push(\`\${result.garageSpaces} garage spaces\`);
                     if (result.yearBuilt) populatedFields.push(\`built \${result.yearBuilt}\`);
+                    if (result.taxes) populatedFields.push(\`$\${result.taxes.toLocaleString()} taxes\`);
                     
-                    showStatus('cma', 'success', \`✅ Property details auto-filled: \${populatedFields.join(', ')}\${result.latitude && result.longitude ? ', with precise coordinates' : ''}\`);
+                    const cacheMsg = currentCacheInfo.source === 'cached' ? 
+                        \` (cached data, \${currentCacheInfo.age_days} days old)\` : ' (fresh data)';
+                    
+                    showStatus('cma', 'success', 
+                        \`✅ Property details auto-filled: \${populatedFields.join(', ')}\${result.latitude && result.longitude ? ', with GPS coordinates' : ''}\${cacheMsg}\`);
+                    
+                    // Show cache information
+                    if (currentCacheInfo) {
+                        displayCacheInfo(currentCacheInfo);
+                        
+                        // Show force refresh button if we have cached data and person ID
+                        if (currentCacheInfo.force_refresh_available && currentCacheInfo.source === 'cached') {
+                            document.getElementById('force-refresh-btn').style.display = 'inline-block';
+                        }
+                    }
                 } else {
                     showStatus('cma', 'error', result.error || 'Property details not found in Attom database');
                 }
@@ -878,6 +1087,32 @@ function generateHTML(prefilledAddress = '', personId = null) {
                 hideLoading('cma');
                 showStatus('cma', 'error', 'Property lookup failed: ' + error.message);
             }
+        }
+
+        // Display cache information
+        function displayCacheInfo(cacheInfo) {
+            const cacheDiv = document.getElementById('cache-info');
+            const detailsP = document.getElementById('cache-details');
+            
+            let cacheText = '';
+            if (cacheInfo.source === 'cached') {
+                cacheText = \`Data Source: Cached (\${cacheInfo.age_days} days old)\\n\`;
+                cacheText += \`Cache Expires: \${cacheInfo.expires_in_days} days remaining\\n\`;
+                cacheText += \`Cache Key: \${cacheInfo.cache_key}\`;
+            } else {
+                cacheText = \`Data Source: Fresh from Attom API\\n\`;
+                cacheText += \`Cached for: 180 days (6 months)\\n\`;
+                cacheText += \`Cache Key: \${cacheInfo.cache_key}\`;
+            }
+            
+            detailsP.textContent = cacheText;
+            cacheDiv.classList.add('show');
+        }
+
+        // Hide cache information
+        function hideCacheInfo() {
+            document.getElementById('cache-info').classList.remove('show');
+            document.getElementById('force-refresh-btn').style.display = 'none';
         }
 
         // Tab switching
@@ -903,7 +1138,7 @@ function generateHTML(prefilledAddress = '', personId = null) {
             options.style.display = this.checked ? 'block' : 'none';
         });
 
-        // Form submission with enhanced property data
+        // Form submission with optimal CMA data
         document.getElementById('cma-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -921,16 +1156,20 @@ function generateHTML(prefilledAddress = '', personId = null) {
                 baths: formData.get('baths'),
                 sqft: formData.get('sqft'),
                 garageSpaces: formData.get('garage_spaces'),
+                taxes: formData.get('taxes'),
                 acres: formData.get('acres'),
                 yearBuilt: formData.get('year_built'),
                 stories: formData.get('stories'),
+                pool: formData.get('pool'),
                 latitude: formData.get('latitude'),
                 longitude: formData.get('longitude'),
                 radius: formData.get('radius'),
                 monthsBack: formData.get('months_back'),
                 minListings: formData.get('min_listings'),
                 propType: formData.get('prop_type'),
+                template: formData.get('template'),
                 title: formData.get('title'),
+                headline: formData.get('headline'),
                 createHomebeat: formData.get('create_homebeat') === 'on',
                 homebeatFrequency: formData.get('homebeat_frequency')
             };
@@ -951,12 +1190,15 @@ function generateHTML(prefilledAddress = '', personId = null) {
                 hideLoading('cma');
                 
                 if (result.success) {
-                    let message = '✅ Enhanced CMA report generated successfully!';
+                    let message = '✅ Optimal CMA report generated successfully!';
                     if (result.suggested_center_range) {
                         message += \`\\n\\n🎯 Suggested Center Range: $\${result.suggested_center_range.toLocaleString()}\\n(Market Value × 1.024 Protocol)\`;
                     }
                     if (result.homebeatCreated) {
-                        message += '\\n\\n🏠 Homebeat subscription created successfully!';
+                        message += '\\n\\n🏠 Enhanced Homebeat subscription created successfully!';
+                    }
+                    if (result.enhancementLevel) {
+                        message += \`\\n\\n📊 Enhancement Level: \${result.enhancementLevel}\`;
                     }
                     showStatus('cma', 'success', message);
                     
@@ -1129,7 +1371,7 @@ function generateHTML(prefilledAddress = '', personId = null) {
             statusElement.style.display = 'block';
             
             if (type === 'success') {
-                setTimeout(() => hideStatus(section), 5000);
+                setTimeout(() => hideStatus(section), 10000);
             }
         }
 
@@ -1141,8 +1383,8 @@ function generateHTML(prefilledAddress = '', personId = null) {
 </html>`;
 }
 
-// Generate CMA with CloudCMA API and enhanced property data
-async function generateCMA(params, headers) {
+// Generate optimal CMA using CloudCMA Widget API with maximum parameters
+async function generateOptimalCMA(params, headers) {
     try {
         const {
             personId,
@@ -1151,16 +1393,20 @@ async function generateCMA(params, headers) {
             baths,
             sqft,
             garageSpaces,
+            taxes,
             acres,
             yearBuilt,
             stories,
+            pool,
             latitude,
             longitude,
             radius,
             monthsBack,
             minListings,
             propType,
+            template,
             title,
+            headline,
             createHomebeat,
             homebeatFrequency
         } = params;
@@ -1184,7 +1430,7 @@ async function generateCMA(params, headers) {
         const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
 
         // Generate unique job ID for webhook matching
-        const jobId = `CMA_${Date.now()}_${personId}`;
+        const jobId = `OPTIMAL_CMA_${Date.now()}_${personId}`;
 
         // Step 1: Get market value for Glenn's center range protocol
         let centerValue = null;
@@ -1206,63 +1452,38 @@ async function generateCMA(params, headers) {
             // Continue without center range suggestion
         }
 
-        // Build enhanced CMA URL with comprehensive property data
-        const cmaParams = new URLSearchParams({
+        // Build optimal CMA using CloudCMA Widget API for maximum parameter utilization
+        const optimalParams = new URLSearchParams({
             api_key: CLOUDCMA_API_KEY,
             address: address,
-            beds: beds || '',
-            baths: baths || '',
-            sqft: sqft || '',
-            garage_spaces: garageSpaces || '',
-            acres: acres || '',
-            year_built: yearBuilt || '',
-            stories: stories || '',
-            latitude: latitude || '',
-            longitude: longitude || '',
-            radius: radius || '0.75',
-            months_back: monthsBack || '9',
-            min_listings: minListings || '10',
-            prop_type: propType || '',
-            title: title || `${personData.name || 'Client'} - ${address}`,
-            notes: `Generated by WILLOW V50 with Attom Enhancement\nJob ID: ${jobId}\nEnhanced with: ${[
-                beds ? `${beds} beds` : null,
-                baths ? `${baths} baths` : null, 
-                sqft ? `${sqft} sqft` : null,
-                garageSpaces ? `${garageSpaces} garage spaces` : null,
-                acres ? `${acres} acres` : null,
-                yearBuilt ? `built ${yearBuilt}` : null,
-                latitude && longitude ? 'precise coordinates' : null
-            ].filter(Boolean).join(', ')}`,
-            callback_url: `${WEBHOOK_URL}?job_id=${encodeURIComponent(jobId)}`
+            name: personData.name || 'Valued Client'
         });
 
-        const cmaUrl = `https://cloudcma.com/cmas/new?${cmaParams.toString()}`;
+        // Core property characteristics
+        if (sqft) optimalParams.append('sqft', sqft);
+        if (beds) optimalParams.append('beds', beds);
+        if (baths) optimalParams.append('baths', baths);
 
-        // Update FUB custom fields with enhanced data
-        const updatePayload = {
-            customWILLOWCMADate: new Date().toISOString(),
-            customWILLOWCMAAddress: address,
-            customWILLOWCMALink: cmaUrl
-            // Note: Job ID stored in CMA notes for webhook matching
-        };
-        
-        // Add center value if available (Glenn's protocol)
-        if (centerValue) {
-            updatePayload.customWILLOWCenterValue = centerValue;
+        // Advanced property features
+        if (garageSpaces) optimalParams.append('garages', garageSpaces);
+        if (taxes) optimalParams.append('taxes', taxes);
+        if (acres) {
+            // Convert acres to square feet for CloudCMA lot_size parameter
+            const lotSqft = Math.round(parseFloat(acres) * 43560);
+            optimalParams.append('lot_size', lotSqft.toString());
         }
 
-        // Store enhanced property data in FUB custom fields
-        if (beds) updatePayload.customWILLOWBeds = parseInt(beds);
-        if (baths) updatePayload.customWILLOWBaths = parseFloat(baths);
-        if (sqft) updatePayload.customWILLOWSqFt = parseInt(sqft);
-        if (acres) updatePayload.customWILLOWAcres = parseFloat(acres);
-        if (yearBuilt) updatePayload.customWILLOWYearBuilt = parseInt(yearBuilt);
-        if (latitude) updatePayload.customWILLOWLatitude = parseFloat(latitude);
-        if (longitude) updatePayload.customWILLOWLongitude = parseFloat(longitude);
+        // Professional presentation parameters
+        if (title) optimalParams.append('title', title);
+        if (headline) optimalParams.append('headline', headline);
+        if (template) optimalParams.append('template', template);
 
-        await fubAPIRequest('PUT', `/v1/people/${personId}`, updatePayload);
+        // Search parameters for optimal comparable selection
+        optimalParams.append('min_listings', minListings || '10');
+        optimalParams.append('months_back', monthsBack || '9');
+        if (propType) optimalParams.append('prop_type', propType);
 
-        // Create enhanced FUB activity note
+        // Enhanced notes with comprehensive property intelligence
         const enhancementDetails = [
             beds ? `${beds} bedrooms` : null,
             baths ? `${baths} bathrooms` : null,
@@ -1270,29 +1491,82 @@ async function generateCMA(params, headers) {
             garageSpaces ? `${garageSpaces} garage spaces` : null,
             acres ? `${acres} acres` : null,
             yearBuilt ? `built in ${yearBuilt}` : null,
-            latitude && longitude ? `coordinates: ${latitude}, ${longitude}` : null
+            taxes ? `$${parseInt(taxes).toLocaleString()} annual taxes` : null,
+            stories ? `${stories} stories` : null,
+            pool && pool !== '' ? `pool: ${pool}` : null,
+            latitude && longitude ? `GPS: ${latitude}, ${longitude}` : null
         ].filter(Boolean);
 
+        const notes = `Generated by WILLOW V50 Optimal CMA System
+Job ID: ${jobId}
+Enhancement Level: ${enhancementDetails.length > 0 ? 'Attom Database Enhanced' : 'Address Only'}
+${enhancementDetails.length > 0 ? 'Enhanced Data: ' + enhancementDetails.join(', ') : ''}
+
+${centerValue ? `Suggested Center Range: $${centerValue.toLocaleString()} (Market Value × 1.024 Protocol)` : ''}
+
+Powered by Attom Property Intelligence & CloudCMA Widget API`;
+
+        optimalParams.append('notes', notes);
+        optimalParams.append('job_id', jobId);
+        optimalParams.append('callback_url', `${WEBHOOK_URL}?job_id=${encodeURIComponent(jobId)}`);
+
+        // Use CloudCMA Widget endpoint for optimal parameter utilization
+        const cmaUrl = `https://cloudcma.com/cmas/widget?${optimalParams.toString()}`;
+
+        // Update FUB custom fields with comprehensive enhancement data
+        const updatePayload = {
+            customWILLOWCMADate: new Date().toISOString(),
+            customWILLOWCMAAddress: address,
+            customWILLOWCMALink: cmaUrl,
+            customWILLOWCMAJobId: jobId,
+            customWILLOWEnhancementLevel: enhancementDetails.length > 0 ? 'Attom Enhanced' : 'Address Only'
+        };
+        
+        // Add center value if available (Glenn's protocol)
+        if (centerValue) {
+            updatePayload.customWILLOWCenterValue = centerValue;
+        }
+
+        // Store comprehensive property data in FUB custom fields
+        if (beds) updatePayload.customWILLOWBeds = parseInt(beds);
+        if (baths) updatePayload.customWILLOWBaths = parseFloat(baths);
+        if (sqft) updatePayload.customWILLOWSqFt = parseInt(sqft);
+        if (garageSpaces) updatePayload.customWILLOWGarageSpaces = parseInt(garageSpaces);
+        if (taxes) updatePayload.customWILLOWTaxes = parseInt(taxes);
+        if (acres) updatePayload.customWILLOWAcres = parseFloat(acres);
+        if (yearBuilt) updatePayload.customWILLOWYearBuilt = parseInt(yearBuilt);
+        if (stories) updatePayload.customWILLOWStories = parseFloat(stories);
+        if (latitude) updatePayload.customWILLOWLatitude = parseFloat(latitude);
+        if (longitude) updatePayload.customWILLOWLongitude = parseFloat(longitude);
+        if (pool && pool !== '') updatePayload.customWILLOWPool = pool;
+
+        await fubAPIRequest('PUT', `/v1/people/${personId}`, updatePayload);
+
+        // Create comprehensive FUB activity note
         await fubAPIRequest('POST', '/v1/notes', {
             personId: parseInt(personId),
-            subject: '🎯 WILLOW V50: Enhanced CMA Generated',
-            body: `Enhanced CMA generated for ${address}
+            subject: '🎯 WILLOW V50: Optimal CMA Generated',
+            body: `Optimal CMA generated for ${address}
 
-Property Details: ${enhancementDetails.length > 0 ? enhancementDetails.join(', ') : 'Basic address only'}
-Template: ${params.template || 'Standard'}
+Property Enhancement: ${enhancementDetails.length > 0 ? enhancementDetails.join(', ') : 'Address only'}
+Template: ${template || 'Default CloudCMA Template'}
+Headline: ${headline || 'Professional Market Analysis'}
 Search Parameters: ${radius || '0.75'}mi radius, ${monthsBack || '9'} months back, min ${minListings || '10'} comps
 
-CloudCMA URL: ${cmaUrl}
+CloudCMA Widget URL: ${cmaUrl}
 Job ID: ${jobId}
 
-Enhancement Level: ${enhancementDetails.length > 0 ? 'Attom Database Enhanced' : 'Address Only'}
-${params.notes || 'Generated via WILLOW V50 CMA Workbench with Attom Property Enhancement'}`
+API Endpoint: CloudCMA Widget (Optimal Parameter Utilization)
+Enhancement Source: Attom Property Database
+Cache Strategy: 6-month intelligent caching active
+
+${notes}`
         });
 
         let homebeatUrl = null;
         let homebeatCreated = false;
 
-        // Create Homebeat if requested with enhanced property data
+        // Create enhanced Homebeat if requested with comprehensive property data
         if (createHomebeat === true || createHomebeat === 'true') {
             try {
                 const homebeatPayload = {
@@ -1309,11 +1583,11 @@ ${params.notes || 'Generated via WILLOW V50 CMA Workbench with Attom Property En
                             sqft: sqft || null,
                             beds: beds || null,
                             baths: baths || null,
-                            garage_spaces: garageSpaces || null,
-                            acres: acres || null,
-                            year_built: yearBuilt || null,
-                            latitude: latitude || null,
-                            longitude: longitude || null
+                            garages: garageSpaces || null,
+                            lot_size: acres ? Math.round(parseFloat(acres) * 43560) : null,
+                            taxes: taxes || null,
+                            geo_lat: latitude || null,
+                            geo_lon: longitude || null
                         },
                         lead: {
                             name: personData.name || '',
@@ -1327,13 +1601,13 @@ ${params.notes || 'Generated via WILLOW V50 CMA Workbench with Attom Property En
                 homebeatCreated = true;
                 homebeatUrl = homebeatResponse.homebeat_url || null;
 
-                // Update FUB with Homebeat info
+                // Update FUB with enhanced Homebeat info
                 await fubAPIRequest('PUT', `/v1/people/${personId}`, {
                     customWILLOWCloudCMAHomeBeatURL: homebeatUrl,
                     customWILLOWHomebeatFirstSendDate: new Date().toISOString()
                 });
 
-                // Create FUB activity note for Homebeat
+                // Create FUB activity note for enhanced Homebeat
                 await fubAPIRequest('POST', '/v1/notes', {
                     personId: parseInt(personId),
                     subject: '🏠 WILLOW V50: Enhanced Homebeat Created',
@@ -1343,15 +1617,20 @@ Property Enhancement: ${enhancementDetails.length > 0 ? enhancementDetails.join(
 Frequency: ${homebeatFrequency || 'quarterly'}
 Homebeat URL: ${homebeatUrl}
 
-Lead will receive automated market updates with enhanced property data and neighborhood insights.`
+Advanced Features Included:
+${garageSpaces ? `- Garage tracking (${garageSpaces} spaces)` : ''}
+${taxes ? `- Tax information ($${parseInt(taxes).toLocaleString()})` : ''}
+${latitude && longitude ? '- GPS-precise location tracking' : ''}
+
+Lead will receive automated market updates with enhanced property intelligence and neighborhood insights.`
                 });
 
             } catch (homebeatError) {
-                console.error('Homebeat creation failed:', homebeatError);
+                console.error('Enhanced Homebeat creation failed:', homebeatError);
             }
         }
 
-        // Build response with conditional center range and enhancement details
+        // Build comprehensive response with enhancement metrics
         const response = {
             success: true,
             cmaUrl: cmaUrl,
@@ -1359,14 +1638,16 @@ Lead will receive automated market updates with enhanced property data and neigh
             homebeatUrl: homebeatUrl,
             jobId: jobId,
             address: address,
-            enhancementLevel: enhancementDetails.length > 0 ? 'Attom Enhanced' : 'Address Only',
-            enhancedFields: enhancementDetails
+            enhancementLevel: enhancementDetails.length > 0 ? 'Attom Database Enhanced' : 'Address Only',
+            enhancedFields: enhancementDetails,
+            apiEndpoint: 'CloudCMA Widget (Optimal)',
+            parameterCount: optimalParams.toString().split('&').length
         };
         
         // Add center range suggestion only when market data validates as current
         if (centerValue) {
             response.suggested_center_range = centerValue;
-            response.center_range_note = "Suggested center range based on current market data";
+            response.center_range_note = "Suggested center range based on current market data (Glenn's 1.024 Protocol)";
         }
         
         return {
@@ -1379,7 +1660,7 @@ Lead will receive automated market updates with enhanced property data and neigh
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ error: 'Failed to generate enhanced CMA: ' + error.message })
+            body: JSON.stringify({ error: 'Failed to generate optimal CMA: ' + error.message })
         };
     }
 }
