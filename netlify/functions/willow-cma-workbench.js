@@ -8,6 +8,9 @@ const FUB_API_KEY = process.env.FUB_API_KEY || 'fka_0oHt62NxmsExO6x69p08ix82zx8i
 const CLOUDCMA_API_KEY = process.env.CLOUDCMA_API_KEY || '742f4a46e1780904da090d721a9bae7b';
 const WEBHOOK_URL = 'https://willow-v50-supervised-cma.netlify.app/.netlify/functions/cloudcma-webhook';
 
+// Glenn's Center Range Protocol Configuration
+const CENTER_RANGE_MULTIPLIER = 1.024; // Configurable multiplier factor
+
 exports.handler = async (event, context) => {
     // CORS headers
     const headers = {
@@ -63,6 +66,9 @@ exports.handler = async (event, context) => {
             
             case 'createManualAction':
                 return await createManualAction(params, headers);
+            
+            case 'getMarketValue':
+                return await getMarketValue(params.address, headers);
             
             default:
                 return {
@@ -149,6 +155,26 @@ async function generateCMA(params, headers) {
         // Generate unique job ID for webhook matching
         const jobId = `CMA_${Date.now()}_${personId}`;
 
+        // Step 1: Get market value for Glenn's center range protocol
+        let centerValue = null;
+        let marketValue = null;
+        
+        try {
+            // Call market value lookup (internal function)
+            const marketData = await getMarketValueInternal(address);
+            
+            if (marketData && marketData.value) {
+                marketValue = marketData.value;
+                // Glenn's Protocol: Market Value × 1.024, round up to next $5K
+                const calculated = marketValue * CENTER_RANGE_MULTIPLIER;
+                centerValue = Math.ceil(calculated / 5000) * 5000;
+                console.log(`WILLOW V50: Center Range Protocol - ${marketValue} × ${CENTER_RANGE_MULTIPLIER} = ${centerValue}`);
+            }
+        } catch (marketError) {
+            console.warn('WILLOW V50: Market value lookup failed:', marketError.message);
+            // Continue without center range suggestion
+        }
+
         // Build CMA URL with job_id in callback
         const cmaParams = new URLSearchParams({
             api_key: CLOUDCMA_API_KEY,
@@ -174,6 +200,11 @@ async function generateCMA(params, headers) {
             customWILLOWCMALink: cmaUrl,
             customWILLOWCMAJobID: jobId
         };
+        
+        // Add center value if available (Glenn's protocol)
+        if (centerValue) {
+            updatePayload.customWILLOWCenterValue = centerValue;
+        }
 
         await fubAPIRequest('PUT', `/v1/people/${personId}`, updatePayload);
 
@@ -250,15 +281,26 @@ Lead will receive automated market updates with property value estimates and nei
             }
         }
 
+        // Build response with conditional center range
+        const response = {
+            success: true,
+            cmaUrl: cmaUrl,
+            homebeatCreated: homebeatCreated,
+            homebeatUrl: homebeatUrl,
+            jobId: jobId,
+            address: address
+        };
+        
+        // Add center range suggestion only when market data validates as current
+        if (centerValue) {
+            response.suggested_center_range = centerValue;
+            response.center_range_note = "Suggested center range based on current market data";
+        }
+        
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({
-                success: true,
-                cmaUrl: cmaUrl,
-                homebeatCreated: homebeatCreated,
-                homebeatUrl: homebeatUrl
-            })
+            body: JSON.stringify(response)
         };
 
     } catch (error) {
@@ -662,6 +704,99 @@ function cloudCMAAPIRequest(method, path, data = null) {
         if (data) {
             req.write(JSON.stringify(data));
         }
+        
+        req.end();
+    });
+}
+
+
+// Market Value Lookup (External API endpoint)
+async function getMarketValue(address, headers) {
+    try {
+        if (!address) {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing address parameter' })
+            };
+        }
+        
+        const marketData = await getMarketValueInternal(address);
+        
+        if (marketData && marketData.value) {
+            const centerRange = Math.ceil(marketData.value * CENTER_RANGE_MULTIPLIER / 5000) * 5000;
+            
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    market_value: marketData.value,
+                    suggested_center_range: centerRange,
+                    data_source: marketData.source,
+                    timestamp: new Date().toISOString()
+                })
+            };
+        } else {
+            return {
+                statusCode: 404,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Market data not available for this address',
+                    message: 'No current market data found to validate center range'
+                })
+            };
+        }
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'Market value lookup failed: ' + error.message })
+        };
+    }
+}
+
+// Internal Market Value Lookup (used by CMA generation)
+async function getMarketValueInternal(address) {
+    return new Promise((resolve, reject) => {
+        // Call the existing zillow-zestimate function
+        const options = {
+            hostname: 'willow-v50-supervised-cma.netlify.app',
+            path: `/.netlify/functions/zillow-zestimate?address=${encodeURIComponent(address)}`,
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000
+        };
+        
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', () => {
+                try {
+                    if (res.statusCode === 200) {
+                        const data = JSON.parse(body);
+                        if (data.zestimate) {
+                            resolve({
+                                value: data.zestimate,
+                                source: 'Market Data',
+                                timestamp: new Date().toISOString()
+                            });
+                        } else {
+                            resolve(null); // No market data available
+                        }
+                    } else {
+                        resolve(null); // Market data not found
+                    }
+                } catch (e) {
+                    resolve(null); // Parsing failed, no market data
+                }
+            });
+        });
+        
+        req.on('error', () => resolve(null)); // Network error, no market data
+        req.on('timeout', () => {
+            req.destroy();
+            resolve(null); // Timeout, no market data
+        });
         
         req.end();
     });
