@@ -1,7 +1,21 @@
 [build]
   functions = "netlify/functions"
+  publish = "."
 
-[build.environment]
-  ATTOM_API_KEY = "83d56a0076ca0aeefd240b3d397ce708"
-  CLOUDCMA_API_KEY = "742f4a46e1780904da090d721a9bae7b"
-  FUB_API_KEY = "fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj"
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "ALLOWALL"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "*"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "*"
