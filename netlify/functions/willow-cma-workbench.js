@@ -1,11 +1,12 @@
 // WILLOW V50 CMA Workbench - Complete Netlify Function
-// Purpose: Server-side FUB/CloudCMA API integration with HTML serving and FUB Context Processing
+// Purpose: Server-side FUB/CloudCMA API integration with HTML serving, FUB Context Processing, and Attom Property Data Enhancement
 
 const https = require('https');
 
 // API Credentials
 const FUB_API_KEY = process.env.FUB_API_KEY || 'fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj';
 const CLOUDCMA_API_KEY = process.env.CLOUDCMA_API_KEY || '742f4a46e1780904da090d721a9bae7b';
+const ATTOM_API_KEY = process.env.ATTOM_API_KEY || 'bba0b57b0da26db5b5dd45b5750b0be8'; // Glenn's Attom API key
 const WEBHOOK_URL = 'https://willow-v50-supervised-cma.netlify.app/.netlify/functions/cloudcma-webhook';
 
 // Glenn's Center Range Protocol Configuration
@@ -107,6 +108,9 @@ exports.handler = async (event, context) => {
             case 'getMarketValue':
                 return await getMarketValue(params.address, headers);
             
+            case 'getPropertyDetails':
+                return await getPropertyDetails(params.address, headers);
+            
             default:
                 return {
                     statusCode: 400,
@@ -125,7 +129,159 @@ exports.handler = async (event, context) => {
     }
 };
 
-// Generate dynamic HTML with FUB context data
+// Get comprehensive property details from Attom API
+async function getPropertyDetails(address, headers) {
+    try {
+        if (!address) {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing address parameter' })
+            };
+        }
+
+        const propertyData = await attomPropertySearch(address);
+        
+        if (propertyData) {
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify(propertyData)
+            };
+        } else {
+            return {
+                statusCode: 404,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Property data not found',
+                    message: 'No property details available for this address'
+                })
+            };
+        }
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'Property lookup failed: ' + error.message })
+        };
+    }
+}
+
+// Attom API Property Search
+async function attomPropertySearch(address) {
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: 'search.onboard-apis.com',
+            path: `/propertyapi/v1.0.0/property/detail?address1=${encodeURIComponent(address)}&format=json`,
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'apikey': ATTOM_API_KEY
+            },
+            timeout: 15000
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', () => {
+                try {
+                    if (res.statusCode === 200) {
+                        const data = JSON.parse(body);
+                        const property = data.property?.[0];
+                        
+                        if (property) {
+                            // Extract comprehensive property details for CMA enhancement
+                            const details = {
+                                // Basic property information
+                                address: property.address?.oneLine || address,
+                                propertyType: property.summary?.propclass || 'Single Family Residential',
+                                
+                                // Physical characteristics
+                                beds: property.building?.rooms?.beds || null,
+                                baths: property.building?.rooms?.bathstotal || property.building?.rooms?.baths || null,
+                                sqft: property.building?.size?.livingsize || property.building?.size?.grosssize || null,
+                                
+                                // Lot information
+                                lotSqft: property.lot?.lotsize1 || null,
+                                acres: property.lot?.lotsize1 ? (property.lot.lotsize1 / 43560).toFixed(2) : null,
+                                
+                                // Additional features
+                                garageSpaces: property.building?.parking?.garagespaces || property.building?.parking?.carportspaces || null,
+                                yearBuilt: property.summary?.yearbuilt || null,
+                                
+                                // Location data for precise CMA
+                                latitude: property.location?.latitude || null,
+                                longitude: property.location?.longitude || null,
+                                
+                                // Property classification
+                                propClass: property.summary?.propclass || 'Residential',
+                                propSubType: property.summary?.propsubtype || 'Single Family Residence',
+                                
+                                // Market data
+                                lastSalePrice: property.sale?.amount?.saleamt || null,
+                                lastSaleDate: property.sale?.amount?.salerecdate || null,
+                                
+                                // Assessment data
+                                assessedValue: property.assessment?.assessed?.assdtotal || null,
+                                marketValue: property.assessment?.market?.mktttl || null,
+                                
+                                // Additional CMA enhancement fields
+                                stories: property.building?.summary?.stories || null,
+                                basement: property.building?.basement?.bsmttype || null,
+                                fireplace: property.building?.interior?.fireplaces || null,
+                                pool: property.building?.summary?.pool || null,
+                                
+                                // Data source metadata
+                                attomId: property.identifier?.attomId || null,
+                                parcelNumber: property.identifier?.parcelnumber || null
+                            };
+
+                            // Clean up null values and format numbers
+                            Object.keys(details).forEach(key => {
+                                if (details[key] === null || details[key] === undefined || details[key] === '') {
+                                    delete details[key];
+                                }
+                                // Convert string numbers to actual numbers where appropriate
+                                if (typeof details[key] === 'string' && !isNaN(details[key]) && details[key].trim() !== '') {
+                                    const numValue = parseFloat(details[key]);
+                                    if (!isNaN(numValue)) {
+                                        details[key] = numValue;
+                                    }
+                                }
+                            });
+
+                            resolve(details);
+                        } else {
+                            resolve(null);
+                        }
+                    } else {
+                        console.warn(`Attom API error: ${res.statusCode} - ${body}`);
+                        resolve(null);
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse Attom response:', e.message);
+                    resolve(null);
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            console.warn('Attom API request failed:', err.message);
+            resolve(null);
+        });
+        
+        req.on('timeout', () => {
+            req.destroy();
+            console.warn('Attom API request timeout');
+            resolve(null);
+        });
+
+        req.end();
+    });
+}
+
+// Generate dynamic HTML with FUB context data and enhanced property lookup
 function generateHTML(prefilledAddress = '', personId = null) {
     return `<!DOCTYPE html>
 <html lang="en">
@@ -236,6 +392,12 @@ function generateHTML(prefilledAddress = '', personId = null) {
             gap: 15px;
         }
 
+        .form-row-4 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
         label {
             display: block;
             margin-bottom: 8px;
@@ -294,6 +456,15 @@ function generateHTML(prefilledAddress = '', personId = null) {
             background: #a0aec0;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .btn-secondary {
+            background: #ed8936;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #dd6b20;
         }
 
         .status {
@@ -410,8 +581,27 @@ function generateHTML(prefilledAddress = '', personId = null) {
             margin: 0;
         }
 
+        .enhancement-box {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .enhancement-box h4 {
+            color: #22543d;
+            margin-bottom: 8px;
+        }
+
+        .enhancement-box p {
+            color: #22543d;
+            font-size: 14px;
+            margin: 0;
+        }
+
         @media (max-width: 768px) {
-            .form-row, .form-row-3 {
+            .form-row, .form-row-3, .form-row-4 {
                 grid-template-columns: 1fr;
             }
             
@@ -425,7 +615,7 @@ function generateHTML(prefilledAddress = '', personId = null) {
     <div class="container">
         <div class="header">
             <h1>WILLOW V50 - CMA Workbench</h1>
-            <div class="subtitle">Comprehensive Market Analysis & Lead Intelligence System</div>
+            <div class="subtitle">Comprehensive Market Analysis & Lead Intelligence System with Attom Property Enhancement</div>
         </div>
 
         <div class="tabs">
@@ -443,13 +633,22 @@ function generateHTML(prefilledAddress = '', personId = null) {
                         <p>When market data is available, system will suggest center range using Market Value × 1.024, rounded up to next $5K increment.</p>
                     </div>
 
+                    <div class="enhancement-box">
+                        <h4>🏠 Attom Property Enhancement</h4>
+                        <p>Enter address and click "Auto-Fill Property Details" to populate beds, baths, sqft, lot size, garage spaces, coordinates, and property type from comprehensive property database for optimal CMA accuracy.</p>
+                    </div>
+
                     <div class="form-group">
                         <label for="address">Property Address *</label>
                         <input type="text" id="address" name="address" value="${prefilledAddress}" required 
                                placeholder="123 Main St, City, State, ZIP">
                     </div>
 
-                    <div class="form-row-3">
+                    <button type="button" class="btn btn-secondary" onclick="autoFillPropertyDetails()">
+                        🔍 Auto-Fill Property Details from Attom Database
+                    </button>
+
+                    <div class="form-row-4">
                         <div class="form-group">
                             <label for="beds">Bedrooms</label>
                             <input type="number" id="beds" name="beds" placeholder="Auto-detect">
@@ -461,6 +660,36 @@ function generateHTML(prefilledAddress = '', personId = null) {
                         <div class="form-group">
                             <label for="sqft">Square Feet</label>
                             <input type="number" id="sqft" name="sqft" placeholder="Auto-detect">
+                        </div>
+                        <div class="form-group">
+                            <label for="garage_spaces">Garage Spaces</label>
+                            <input type="number" id="garage_spaces" name="garage_spaces" placeholder="Auto-detect">
+                        </div>
+                    </div>
+
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label for="acres">Lot Size (Acres)</label>
+                            <input type="number" step="0.01" id="acres" name="acres" placeholder="Auto-detect">
+                        </div>
+                        <div class="form-group">
+                            <label for="year_built">Year Built</label>
+                            <input type="number" id="year_built" name="year_built" placeholder="Auto-detect">
+                        </div>
+                        <div class="form-group">
+                            <label for="stories">Stories</label>
+                            <input type="number" step="0.5" id="stories" name="stories" placeholder="Auto-detect">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="latitude">Latitude</label>
+                            <input type="number" step="0.000001" id="latitude" name="latitude" placeholder="Auto-detect">
+                        </div>
+                        <div class="form-group">
+                            <label for="longitude">Longitude</label>
+                            <input type="number" step="0.000001" id="longitude" name="longitude" placeholder="Auto-detect">
                         </div>
                     </div>
 
@@ -505,6 +734,8 @@ function generateHTML(prefilledAddress = '', personId = null) {
                                 <option value="condo">Condo</option>
                                 <option value="townhome">Townhome</option>
                                 <option value="multi_family">Multi-Family</option>
+                                <option value="land">Land</option>
+                                <option value="commercial">Commercial</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -529,13 +760,13 @@ function generateHTML(prefilledAddress = '', personId = null) {
                         </div>
                     </div>
 
-                    <button type="submit" class="btn">Generate CMA Report</button>
+                    <button type="submit" class="btn">Generate Enhanced CMA Report</button>
                 </form>
 
                 <div id="cma-status" class="status"></div>
                 <div id="cma-loading" class="loading">
                     <div class="spinner"></div>
-                    <div>Generating CMA report...</div>
+                    <div>Generating enhanced CMA report...</div>
                 </div>
             </div>
         </div>
@@ -592,6 +823,63 @@ function generateHTML(prefilledAddress = '', personId = null) {
             }
         });
 
+        // Auto-fill property details from Attom API
+        async function autoFillPropertyDetails() {
+            const address = document.getElementById('address').value.trim();
+            
+            if (!address) {
+                showStatus('cma', 'error', 'Please enter an address first');
+                return;
+            }
+            
+            showLoading('cma');
+            hideStatus('cma');
+            
+            try {
+                const response = await fetch(\`\${window.location.href}?action=getPropertyDetails&address=\${encodeURIComponent(address)}\`);
+                const result = await response.json();
+                hideLoading('cma');
+                
+                if (response.ok && result) {
+                    // Populate form fields with Attom data
+                    if (result.beds) document.getElementById('beds').value = result.beds;
+                    if (result.baths) document.getElementById('baths').value = result.baths;
+                    if (result.sqft) document.getElementById('sqft').value = result.sqft;
+                    if (result.garageSpaces) document.getElementById('garage_spaces').value = result.garageSpaces;
+                    if (result.acres) document.getElementById('acres').value = result.acres;
+                    if (result.yearBuilt) document.getElementById('year_built').value = result.yearBuilt;
+                    if (result.stories) document.getElementById('stories').value = result.stories;
+                    if (result.latitude) document.getElementById('latitude').value = result.latitude;
+                    if (result.longitude) document.getElementById('longitude').value = result.longitude;
+                    
+                    // Set property type based on Attom classification
+                    const propTypeSelect = document.getElementById('prop_type');
+                    if (result.propertyType && result.propertyType.toLowerCase().includes('single')) {
+                        propTypeSelect.value = 'single_family';
+                    } else if (result.propertyType && result.propertyType.toLowerCase().includes('condo')) {
+                        propTypeSelect.value = 'condo';
+                    } else if (result.propertyType && result.propertyType.toLowerCase().includes('town')) {
+                        propTypeSelect.value = 'townhome';
+                    }
+                    
+                    let populatedFields = [];
+                    if (result.beds) populatedFields.push(\`\${result.beds} beds\`);
+                    if (result.baths) populatedFields.push(\`\${result.baths} baths\`);
+                    if (result.sqft) populatedFields.push(\`\${result.sqft.toLocaleString()} sqft\`);
+                    if (result.acres) populatedFields.push(\`\${result.acres} acres\`);
+                    if (result.garageSpaces) populatedFields.push(\`\${result.garageSpaces} garage spaces\`);
+                    if (result.yearBuilt) populatedFields.push(\`built \${result.yearBuilt}\`);
+                    
+                    showStatus('cma', 'success', \`✅ Property details auto-filled: \${populatedFields.join(', ')}\${result.latitude && result.longitude ? ', with precise coordinates' : ''}\`);
+                } else {
+                    showStatus('cma', 'error', result.error || 'Property details not found in Attom database');
+                }
+            } catch (error) {
+                hideLoading('cma');
+                showStatus('cma', 'error', 'Property lookup failed: ' + error.message);
+            }
+        }
+
         // Tab switching
         function switchTab(tabName) {
             // Hide all tabs
@@ -615,7 +903,7 @@ function generateHTML(prefilledAddress = '', personId = null) {
             options.style.display = this.checked ? 'block' : 'none';
         });
 
-        // Form submission
+        // Form submission with enhanced property data
         document.getElementById('cma-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -632,6 +920,12 @@ function generateHTML(prefilledAddress = '', personId = null) {
                 beds: formData.get('beds'),
                 baths: formData.get('baths'),
                 sqft: formData.get('sqft'),
+                garageSpaces: formData.get('garage_spaces'),
+                acres: formData.get('acres'),
+                yearBuilt: formData.get('year_built'),
+                stories: formData.get('stories'),
+                latitude: formData.get('latitude'),
+                longitude: formData.get('longitude'),
                 radius: formData.get('radius'),
                 monthsBack: formData.get('months_back'),
                 minListings: formData.get('min_listings'),
@@ -657,7 +951,7 @@ function generateHTML(prefilledAddress = '', personId = null) {
                 hideLoading('cma');
                 
                 if (result.success) {
-                    let message = '✅ CMA report generated successfully!';
+                    let message = '✅ Enhanced CMA report generated successfully!';
                     if (result.suggested_center_range) {
                         message += \`\\n\\n🎯 Suggested Center Range: $\${result.suggested_center_range.toLocaleString()}\\n(Market Value × 1.024 Protocol)\`;
                     }
@@ -847,35 +1141,7 @@ function generateHTML(prefilledAddress = '', personId = null) {
 </html>`;
 }
 
-// Get person data from FUB
-async function getPersonData(personId, headers) {
-    try {
-        // Validate personId
-        if (!personId || personId === 'null' || personId === 'undefined') {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Missing person_id parameter' })
-            };
-        }
-        
-        const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
-        
-        return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify(personData)
-        };
-    } catch (error) {
-        return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ error: 'Failed to fetch person data: ' + error.message })
-        };
-    }
-}
-
-// Generate CMA with CloudCMA API
+// Generate CMA with CloudCMA API and enhanced property data
 async function generateCMA(params, headers) {
     try {
         const {
@@ -884,6 +1150,12 @@ async function generateCMA(params, headers) {
             beds,
             baths,
             sqft,
+            garageSpaces,
+            acres,
+            yearBuilt,
+            stories,
+            latitude,
+            longitude,
             radius,
             monthsBack,
             minListings,
@@ -934,25 +1206,39 @@ async function generateCMA(params, headers) {
             // Continue without center range suggestion
         }
 
-        // Build CMA URL with job_id in callback
+        // Build enhanced CMA URL with comprehensive property data
         const cmaParams = new URLSearchParams({
             api_key: CLOUDCMA_API_KEY,
             address: address,
             beds: beds || '',
             baths: baths || '',
             sqft: sqft || '',
+            garage_spaces: garageSpaces || '',
+            acres: acres || '',
+            year_built: yearBuilt || '',
+            stories: stories || '',
+            latitude: latitude || '',
+            longitude: longitude || '',
             radius: radius || '0.75',
             months_back: monthsBack || '9',
             min_listings: minListings || '10',
             prop_type: propType || '',
             title: title || `${personData.name || 'Client'} - ${address}`,
-            notes: `Generated by WILLOW V50\nJob ID: ${jobId}`,
+            notes: `Generated by WILLOW V50 with Attom Enhancement\nJob ID: ${jobId}\nEnhanced with: ${[
+                beds ? `${beds} beds` : null,
+                baths ? `${baths} baths` : null, 
+                sqft ? `${sqft} sqft` : null,
+                garageSpaces ? `${garageSpaces} garage spaces` : null,
+                acres ? `${acres} acres` : null,
+                yearBuilt ? `built ${yearBuilt}` : null,
+                latitude && longitude ? 'precise coordinates' : null
+            ].filter(Boolean).join(', ')}`,
             callback_url: `${WEBHOOK_URL}?job_id=${encodeURIComponent(jobId)}`
         });
 
         const cmaUrl = `https://cloudcma.com/cmas/new?${cmaParams.toString()}`;
 
-        // Update FUB custom fields
+        // Update FUB custom fields with enhanced data
         const updatePayload = {
             customWILLOWCMADate: new Date().toISOString(),
             customWILLOWCMAAddress: address,
@@ -965,28 +1251,48 @@ async function generateCMA(params, headers) {
             updatePayload.customWILLOWCenterValue = centerValue;
         }
 
+        // Store enhanced property data in FUB custom fields
+        if (beds) updatePayload.customWILLOWBeds = parseInt(beds);
+        if (baths) updatePayload.customWILLOWBaths = parseFloat(baths);
+        if (sqft) updatePayload.customWILLOWSqFt = parseInt(sqft);
+        if (acres) updatePayload.customWILLOWAcres = parseFloat(acres);
+        if (yearBuilt) updatePayload.customWILLOWYearBuilt = parseInt(yearBuilt);
+        if (latitude) updatePayload.customWILLOWLatitude = parseFloat(latitude);
+        if (longitude) updatePayload.customWILLOWLongitude = parseFloat(longitude);
+
         await fubAPIRequest('PUT', `/v1/people/${personId}`, updatePayload);
 
-        // Create FUB activity note (using Notes API for proper timeline visibility)
+        // Create enhanced FUB activity note
+        const enhancementDetails = [
+            beds ? `${beds} bedrooms` : null,
+            baths ? `${baths} bathrooms` : null,
+            sqft ? `${parseInt(sqft).toLocaleString()} sqft` : null,
+            garageSpaces ? `${garageSpaces} garage spaces` : null,
+            acres ? `${acres} acres` : null,
+            yearBuilt ? `built in ${yearBuilt}` : null,
+            latitude && longitude ? `coordinates: ${latitude}, ${longitude}` : null
+        ].filter(Boolean);
+
         await fubAPIRequest('POST', '/v1/notes', {
             personId: parseInt(personId),
-            subject: '🎯 WILLOW V50: CMA Generated',
-            body: `CMA generated for ${address}
+            subject: '🎯 WILLOW V50: Enhanced CMA Generated',
+            body: `Enhanced CMA generated for ${address}
 
+Property Details: ${enhancementDetails.length > 0 ? enhancementDetails.join(', ') : 'Basic address only'}
 Template: ${params.template || 'Standard'}
-Parameters: ${beds || 'auto'}bd/${baths || 'auto'}ba, ${sqft || 'auto'}sqft
-Search: ${radius || '0.75'}mi radius, ${monthsBack || '9'} months back, min ${minListings || '10'} comps
+Search Parameters: ${radius || '0.75'}mi radius, ${monthsBack || '9'} months back, min ${minListings || '10'} comps
 
 CloudCMA URL: ${cmaUrl}
 Job ID: ${jobId}
 
-${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`
+Enhancement Level: ${enhancementDetails.length > 0 ? 'Attom Database Enhanced' : 'Address Only'}
+${params.notes || 'Generated via WILLOW V50 CMA Workbench with Attom Property Enhancement'}`
         });
 
         let homebeatUrl = null;
         let homebeatCreated = false;
 
-        // Create Homebeat if requested
+        // Create Homebeat if requested with enhanced property data
         if (createHomebeat === true || createHomebeat === 'true') {
             try {
                 const homebeatPayload = {
@@ -1002,7 +1308,12 @@ ${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`
                             address: address,
                             sqft: sqft || null,
                             beds: beds || null,
-                            baths: baths || null
+                            baths: baths || null,
+                            garage_spaces: garageSpaces || null,
+                            acres: acres || null,
+                            year_built: yearBuilt || null,
+                            latitude: latitude || null,
+                            longitude: longitude || null
                         },
                         lead: {
                             name: personData.name || '',
@@ -1022,17 +1333,17 @@ ${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`
                     customWILLOWHomebeatFirstSendDate: new Date().toISOString()
                 });
 
-                // Create FUB activity note for Homebeat (using Notes API)
+                // Create FUB activity note for Homebeat
                 await fubAPIRequest('POST', '/v1/notes', {
                     personId: parseInt(personId),
-                    subject: '🏠 WILLOW V50: Homebeat Created',
-                    body: `Homebeat subscription created for ${address}
+                    subject: '🏠 WILLOW V50: Enhanced Homebeat Created',
+                    body: `Enhanced Homebeat subscription created for ${address}
 
+Property Enhancement: ${enhancementDetails.length > 0 ? enhancementDetails.join(', ') : 'Address only'}
 Frequency: ${homebeatFrequency || 'quarterly'}
 Homebeat URL: ${homebeatUrl}
 
-Lead will receive automated market updates with property value estimates and neighborhood insights.`,
-                    // isExternal: true // Removed - not supported by FUB API
+Lead will receive automated market updates with enhanced property data and neighborhood insights.`
                 });
 
             } catch (homebeatError) {
@@ -1040,14 +1351,16 @@ Lead will receive automated market updates with property value estimates and nei
             }
         }
 
-        // Build response with conditional center range
+        // Build response with conditional center range and enhancement details
         const response = {
             success: true,
             cmaUrl: cmaUrl,
             homebeatCreated: homebeatCreated,
             homebeatUrl: homebeatUrl,
             jobId: jobId,
-            address: address
+            address: address,
+            enhancementLevel: enhancementDetails.length > 0 ? 'Attom Enhanced' : 'Address Only',
+            enhancedFields: enhancementDetails
         };
         
         // Add center range suggestion only when market data validates as current
@@ -1066,7 +1379,7 @@ Lead will receive automated market updates with property value estimates and nei
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ error: 'Failed to generate CMA: ' + error.message })
+            body: JSON.stringify({ error: 'Failed to generate enhanced CMA: ' + error.message })
         };
     }
 }
@@ -1150,6 +1463,34 @@ async function getHomebeatData(personId, headers) {
     }
 }
 
+// Get person data from FUB
+async function getPersonData(personId, headers) {
+    try {
+        // Validate personId
+        if (!personId || personId === 'null' || personId === 'undefined') {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing person_id parameter' })
+            };
+        }
+        
+        const personData = await fubAPIRequest('GET', `/v1/people/${personId}`);
+        
+        return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify(personData)
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'Failed to fetch person data: ' + error.message })
+        };
+    }
+}
+
 // Resend Homebeat
 async function resendHomebeat(params, headers) {
     try {
@@ -1198,7 +1539,7 @@ async function resendHomebeat(params, headers) {
             customWILLOWHomebeatLastResend: new Date().toISOString()
         });
 
-        // Create FUB activity note for Homebeat resend (using Notes API)
+        // Create FUB activity note for Homebeat resend
         await fubAPIRequest('POST', '/v1/notes', {
             personId: parseInt(personId),
             subject: '🔁 WILLOW V50: Homebeat Resent',
@@ -1207,8 +1548,7 @@ async function resendHomebeat(params, headers) {
 Previous Status: Pending (0 views)
 Action: Manual resend triggered
 
-Lead will receive a new Homebeat welcome email with the latest market data.`,
-            // isExternal: true // Removed - not supported by FUB API
+Lead will receive a new Homebeat welcome email with the latest market data.`
         });
 
         return {
@@ -1467,7 +1807,6 @@ function cloudCMAAPIRequest(method, path, data = null) {
         req.end();
     });
 }
-
 
 // Market Value Lookup (External API endpoint)
 async function getMarketValue(address, headers) {
