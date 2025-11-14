@@ -219,9 +219,9 @@ Parameters: ${beds || 'auto'}bd/${baths || 'auto'}ba, ${sqft || 'auto'}sqft
 Search: ${radius || '0.75'}mi radius, ${monthsBack || '9'} months back, min ${minListings || '10'} comps
 
 CloudCMA URL: ${cmaUrl}
+Job ID: ${jobId}
 
-${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`,
-            isExternal: true
+${params.notes || 'Generated via WILLOW V50 CMA Workbench'}`
         });
 
         let homebeatUrl = null;
@@ -273,7 +273,7 @@ Frequency: ${homebeatFrequency || 'quarterly'}
 Homebeat URL: ${homebeatUrl}
 
 Lead will receive automated market updates with property value estimates and neighborhood insights.`,
-                    isExternal: true
+                    // isExternal: true // Removed - not supported by FUB API
                 });
 
             } catch (homebeatError) {
@@ -449,7 +449,7 @@ Previous Status: Pending (0 views)
 Action: Manual resend triggered
 
 Lead will receive a new Homebeat welcome email with the latest market data.`,
-            isExternal: true
+            // isExternal: true // Removed - not supported by FUB API
         });
 
         return {
