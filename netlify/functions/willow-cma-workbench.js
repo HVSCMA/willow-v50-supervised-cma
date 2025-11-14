@@ -92,33 +92,33 @@ exports.handler = async (event, context) => {
         
         console.log(`WILLOW V50: Processing CMA for ${address}`);
 
-        // Step 1: Get Zestimate for Glenn's center range protocol
-        console.log('WILLOW V50: Step 1 - Fetching Zestimate');
+        // Step 1: Get market value for center range calculation
+        console.log('WILLOW V50: Step 1 - Fetching market data');
         
-        let zestimate = null;
+        let marketValue = null;
         let centerValue = null;
         
         try {
-            const zillowOptions = {
+            const marketOptions = {
                 hostname: 'willow-v50-supervised-cma.netlify.app',
-                path: `/.netlify/functions/zillow-zestimate?address=${encodeURIComponent(address)}`,
+                path: `/.netlify/functions/market-value-lookup?address=${encodeURIComponent(address)}`,
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             };
             
-            const zillowResult = await makeAPIRequest(zillowOptions);
-            console.log('WILLOW V50: Zestimate result:', zillowResult);
+            const marketResult = await makeAPIRequest(marketOptions);
+            console.log('WILLOW V50: Market data result:', marketResult);
             
-            if (zillowResult.zestimate) {
-                zestimate = zillowResult.zestimate;
-                // Glenn's Protocol: Zestimate × 1.024, round up to next $5K
-                const calculated = zestimate * ZESTIMATE_MULTIPLIER;
+            if (marketResult.market_value || marketResult.zestimate) {
+                marketValue = marketResult.market_value || marketResult.zestimate;
+                // Glenn's Protocol: Market Value × 1.024, round up to next $5K
+                const calculated = marketValue * ZESTIMATE_MULTIPLIER;
                 centerValue = Math.ceil(calculated / 5000) * 5000;
-                console.log(`WILLOW V50: Glenn's Protocol - ${zestimate} × ${ZESTIMATE_MULTIPLIER} = ${centerValue}`);
+                console.log(`WILLOW V50: Glenn's Protocol - ${marketValue} × ${ZESTIMATE_MULTIPLIER} = ${centerValue}`);
             }
-        } catch (zillowError) {
-            console.warn('WILLOW V50: Zestimate lookup failed:', zillowError.message);
-            // Continue without zestimate
+        } catch (marketError) {
+            console.warn('WILLOW V50: Market value lookup failed:', marketError.message);
+            // Continue without market value
         }
 
         // Step 2: Generate CloudCMA
@@ -209,8 +209,7 @@ exports.handler = async (event, context) => {
 
         if (centerValue) {
             response.center_value = centerValue;
-            response.zestimate = zestimate;
-            response.glenn_protocol = `${zestimate} × ${ZESTIMATE_MULTIPLIER} = ${centerValue}`;
+            response.suggested_center_range = centerValue;
         }
 
         if (personId) {
