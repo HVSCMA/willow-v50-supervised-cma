@@ -962,7 +962,9 @@
               <div style="margin-top: 15px; padding: 10px; background: var(--fub-background); border-radius: 4px;">
                 <small style="color: var(--fub-text-muted);">
                   <strong>CMA Parameters:</strong> 
-                  0.75 mile radius • 12 months back • 15 closest comparables
+                  0.75 mile radius • 12 months back • 15 closest comparables<br>
+                  <strong>Center Range Protocol:</strong> 
+                  Zillow Zestimate × 1.024 → Round up to next $5,000
                 </small>
               </div>
             </div>
@@ -1360,6 +1362,30 @@
           button.innerHTML = '⏳ Generating...';
           button.disabled = true;
           
+          // Get Zillow Zestimate and calculate Glenn's center range value protocol
+          let centerRangeValue = null;
+          try {
+            const zillowResponse = await fetch('/.netlify/functions/zillow-zestimate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: address })
+            });
+            
+            if (zillowResponse.ok) {
+              const zillowData = await zillowResponse.json();
+              if (zillowData.zestimate) {
+                // Glenn's Protocol: Zestimate × 1.024 → round up to next $5000
+                const adjustedValue = zillowData.zestimate * 1.024;
+                centerRangeValue = Math.ceil(adjustedValue / 5000) * 5000;
+                console.log(`Zillow Zestimate: $${zillowData.zestimate.toLocaleString()}`);
+                console.log(`Glenn's Protocol (×1.024): $${adjustedValue.toLocaleString()}`);
+                console.log(`Center Range Value (rounded to $5K): $${centerRangeValue.toLocaleString()}`);
+              }
+            }
+          } catch (error) {
+            console.log('Zillow lookup failed, proceeding without center range value:', error);
+          }
+          
           // Call the real CMA workbench function
           const response = await fetch('/.netlify/functions/willow-cma-workbench', {
             method: 'POST',
@@ -1374,14 +1400,23 @@
               // Glenn's standard parameters: 15 closest comparables within 12 months
               radius: '0.75',
               monthsBack: '12',
-              minListings: '15'
+              minListings: '15',
+              // Glenn's center range value protocol
+              centerRangeValue: centerRangeValue
             })
           });
           
           const result = await response.json();
           
           if (result.success) {
-            alert(`✅ CMA Generated Successfully!\n\nCMA Link: ${result.cmaUrl}\nJob ID: ${result.jobId}\n\nThe CMA has been saved to your FUB contact record and CloudCMA webhook will capture the deliverables.`);
+            let successMessage = `✅ CMA Generated Successfully!\n\nCMA Link: ${result.cmaUrl}\nJob ID: ${result.jobId}`;
+            
+            if (centerRangeValue) {
+              successMessage += `\n\n🎯 Glenn's Center Range Value Protocol Applied:\nZillow Zestimate × 1.024 → Rounded to $5K = $${centerRangeValue.toLocaleString()}`;
+            }
+            
+            successMessage += `\n\nThe CMA has been saved to your FUB contact record and CloudCMA webhook will capture the deliverables.`;
+            alert(successMessage);
             
             // Refresh the person data to show updated CMA info
             await this.refreshPersonData();
