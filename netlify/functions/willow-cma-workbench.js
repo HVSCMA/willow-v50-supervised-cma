@@ -198,7 +198,7 @@ async function generateCMA(params, headers) {
             customWILLOWCMADate: new Date().toISOString(),
             customWILLOWCMAAddress: address,
             customWILLOWCMALink: cmaUrl,
-            customWILLOWCMAJobID: jobId
+            customWILLOWJobID: jobId
         };
         
         // Add center value if available (Glenn's protocol)
