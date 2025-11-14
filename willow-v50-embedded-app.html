@@ -961,10 +961,8 @@
               
               <div style="margin-top: 15px; padding: 10px; background: var(--fub-background); border-radius: 4px;">
                 <small style="color: var(--fub-text-muted);">
-                  <strong>Behavioral Optimization:</strong> 
-                  ${this.intelligence?.classification} priority • 
-                  ${this.getOptimizedRadius()} mile radius • 
-                  ${this.getOptimizedComparables()} comparables
+                  <strong>CMA Parameters:</strong> 
+                  0.75 mile radius • 12 months back • 15 closest comparables
                 </small>
               </div>
             </div>
@@ -1373,10 +1371,10 @@
               personId: this.person?.id,
               address: address,
               template: 'Enhanced CMA with Behavioral Intelligence',
-              // Use behavioral optimization for parameters
-              radius: this.getOptimizedRadius(),
-              monthsBack: this.getOptimizedTimeframe(),
-              minListings: this.getOptimizedComparables()
+              // Glenn's standard parameters: 15 closest comparables within 12 months
+              radius: '0.75',
+              monthsBack: '12',
+              minListings: '15'
             })
           });
           
