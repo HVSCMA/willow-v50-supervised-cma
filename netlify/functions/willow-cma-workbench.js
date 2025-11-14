@@ -193,12 +193,12 @@ async function generateCMA(params, headers) {
 
         const cmaUrl = `https://cloudcma.com/cmas/new?${cmaParams.toString()}`;
 
-        // Update FUB custom fields (including job_id for webhook matching)
+        // Update FUB custom fields
         const updatePayload = {
             customWILLOWCMADate: new Date().toISOString(),
             customWILLOWCMAAddress: address,
-            customWILLOWCMALink: cmaUrl,
-            customWILLOWJobID: jobId
+            customWILLOWCMALink: cmaUrl
+            // Note: Job ID stored in CMA notes for webhook matching
         };
         
         // Add center value if available (Glenn's protocol)
