@@ -101,7 +101,7 @@ exports.handler = async (event, context) => {
         try {
             const marketOptions = {
                 hostname: 'willow-v50-supervised-cma.netlify.app',
-                path: `/.netlify/functions/market-value-lookup?address=${encodeURIComponent(address)}`,
+                path: `/.netlify/functions/zillow-zestimate?address=${encodeURIComponent(address)}`,
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             };
