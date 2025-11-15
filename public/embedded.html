@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WILLOW V50 Intelligence</title>
+  <link rel="stylesheet" href="/css/embedded.css">
+</head>
+<body>
+  <!-- FUB Embedded App JavaScript (Required) -->
+  <script type="text/javascript" src="https://eia.followupboss.com/embeddedApps-v1.0.0.js"></script>
+
+  <!-- Loading State -->
+  <div id="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading WILLOW Intelligence...</p>
+  </div>
+
+  <!-- Error State -->
+  <div id="error" class="error-state" style="display: none;">
+    <div class="error-icon">⚠️</div>
+    <h3 id="error-title">Error</h3>
+    <p id="error-message"></p>
+    <button onclick="location.reload()" class="btn-retry">Retry</button>
+  </div>
+
+  <!-- Main App Container -->
+  <div id="app" style="display: none;">
+    <!-- Header -->
+    <div class="header">
+      <h1>🎯 WILLOW Intelligence</h1>
+      <p class="header-subtitle">Behavioral Analysis & CMA Generation</p>
+    </div>
+
+    <!-- Behavioral Score Display -->
+    <div class="score-display">
+      <div class="score-row">
+        <div>
+          <div class="score-value" id="score-value">--</div>
+          <div class="score-label">Behavioral Score</div>
+        </div>
+        <div>
+          <span class="priority-badge" id="priority-badge">--</span>
+        </div>
+      </div>
+      <div class="score-breakdown">
+        <div class="source-mini">
+          <span class="source-name">Fello</span>
+          <span class="source-score" id="fello-score">--</span>
+        </div>
+        <div class="source-mini">
+          <span class="source-name">CloudCMA</span>
+          <span class="source-score" id="cloudcma-score">--</span>
+        </div>
+        <div class="source-mini">
+          <span class="source-name">WILLOW</span>
+          <span class="source-score" id="willow-score">--</span>
+        </div>
+        <div class="source-mini">
+          <span class="source-name">Sierra</span>
+          <span class="source-score" id="sierra-score">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Triggers -->
+    <div class="section">
+      <h3 class="section-title">🎯 Active Triggers (<span id="trigger-count">0</span>)</h3>
+      <div id="trigger-list" class="trigger-list">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+
+    <!-- Property Intelligence -->
+    <div class="section" id="property-section" style="display: none;">
+      <h3 class="section-title">📍 Property Intelligence</h3>
+      <div class="property-card">
+        <div class="property-address" id="property-address"></div>
+        <div class="property-details">
+          <div class="property-detail">
+            <span class="detail-label">Est. Value</span>
+            <span class="detail-value" id="property-value">--</span>
+          </div>
+          <div class="property-detail">
+            <span class="detail-label">Type</span>
+            <span class="detail-value" id="property-type">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CMA Parameters -->
+    <div class="section">
+      <h3 class="section-title">🎛️ CMA Parameters</h3>
+      <p class="param-hint">Drag sliders or use smart defaults</p>
+
+      <!-- Radius -->
+      <div class="param-slider">
+        <div class="param-label">
+          <span>Radius</span>
+          <span id="radius-value">3 mi</span>
+        </div>
+        <div class="slider-container">
+          <input type="range" id="radius-slider" min="1" max="10" value="3" step="0.5">
+          <div class="default-marker" id="radius-default"></div>
+        </div>
+      </div>
+
+      <!-- Days Back -->
+      <div class="param-slider">
+        <div class="param-label">
+          <span>Days Back</span>
+          <span id="days-value">180 days</span>
+        </div>
+        <div class="slider-container">
+          <input type="range" id="days-slider" min="90" max="365" value="180" step="30">
+          <div class="default-marker" id="days-default"></div>
+        </div>
+      </div>
+
+      <!-- Comparables -->
+      <div class="param-slider">
+        <div class="param-label">
+          <span>Comparables</span>
+          <span id="comps-value">6</span>
+        </div>
+        <div class="slider-container">
+          <input type="range" id="comps-slider" min="4" max="12" value="6" step="1">
+          <div class="default-marker" id="comps-default"></div>
+        </div>
+      </div>
+
+      <!-- Variance -->
+      <div class="param-slider">
+        <div class="param-label">
+          <span>Price Variance</span>
+          <span id="variance-value">15%</span>
+        </div>
+        <div class="slider-container">
+          <input type="range" id="variance-slider" min="5" max="30" value="15" step="5">
+          <div class="default-marker" id="variance-default"></div>
+        </div>
+      </div>
+
+      <div class="param-reasoning">
+        <div class="reasoning-icon">💡</div>
+        <div class="reasoning-text" id="reasoning-text">
+          Smart defaults loading...
+        </div>
+      </div>
+    </div>
+
+    <!-- Primary Action -->
+    <button id="generate-cma-btn" class="btn-primary" onclick="generateCMA()">
+      <span id="cma-btn-text">Generate CMA</span>
+    </button>
+
+    <!-- Transition to Full Window -->
+    <button id="full-window-btn" class="btn-full-window" onclick="openFullWindow()">
+      🚀 Open Full Window
+    </button>
+
+    <!-- Sync Status -->
+    <div class="sync-status">
+      <span id="sync-status">Last sync: <span id="last-sync">--</span></span>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/embedded-app.js"></script>
+</body>
+</html>

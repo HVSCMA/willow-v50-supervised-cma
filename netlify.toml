@@ -5,10 +5,29 @@
 [functions]
   node_bundler = "esbuild"
 
+# FUB Embedded App - Allow iframe embedding from Follow Up Boss
+[[headers]]
+  for = "/embedded.html"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'self' https://*.followupboss.com"
+    X-Content-Type-Options = "nosniff"
+    Access-Control-Allow-Origin = "*"
+    # X-Frame-Options intentionally omitted for FUB iframe compatibility
+
+# Standalone Dashboard - Prevent iframe embedding
+[[headers]]
+  for = "/dashboard.html"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+    X-Content-Type-Options = "nosniff"
+    Access-Control-Allow-Origin = "*"
+
+# All other pages
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options = "ALLOWALL"
+    X-Content-Type-Options = "nosniff"
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"
     Access-Control-Allow-Headers = "*"
