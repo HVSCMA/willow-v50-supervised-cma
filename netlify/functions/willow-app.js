@@ -267,6 +267,401 @@ function refreshHomebeats(personId) {
   });
 }
 
+// **STANDALONE MODE HANDLER - Desktop Power User Mode**
+async function handleStandaloneMode(leadId, baseHeaders) {
+  console.log('🔥 STANDALONE MODE: Fetching FUB data for lead', leadId);
+  
+  try {
+    // Fetch full person data from FUB API
+    const personData = await fetchFUBPerson(leadId);
+    console.log('✅ FUB Person Data Retrieved:', personData.name || 'Unknown');
+    
+    // Extract property address
+    const propertyAddress = extractPropertyAddress(personData);
+    console.log('🏠 Property Address:', propertyAddress || 'Not found');
+    
+    // Fetch ATTOM property intelligence
+    let attomData = null;
+    let attomError = null;
+    if (propertyAddress) {
+      try {
+        const attomResponse = await attomPropertyLookup(propertyAddress);
+        attomData = attomResponse.property && attomResponse.property[0] ? attomResponse.property[0] : null;
+        console.log('✅ ATTOM Data Retrieved:', attomData ? 'YES' : 'NO');
+      } catch (error) {
+        attomError = error.message;
+        console.log('⚠️ ATTOM Lookup Failed:', error.message);
+      }
+    }
+    
+    // Calculate behavioral intelligence
+    const intelligenceData = calculateOmnipresentScore(personData);
+    
+    // Build enhanced standalone HTML
+    const html = buildStandaloneHTML({
+      leadId,
+      personData,
+      propertyAddress,
+      attomData,
+      attomError,
+      intelligenceData
+    });
+    
+    return {
+      statusCode: 200,
+      headers: { ...baseHeaders, 'Content-Type': 'text/html' },
+      body: html
+    };
+    
+  } catch (error) {
+    console.error('❌ STANDALONE MODE ERROR:', error);
+    return {
+      statusCode: 500,
+      headers: { ...baseHeaders, 'Content-Type': 'text/html' },
+      body: `
+        <!DOCTYPE html>
+        <html><head><title>Error</title></head><body>
+          <h1>Standalone Mode Error</h1>
+          <p>Failed to load lead ${leadId}: ${error.message}</p>
+          <p><a href="?">Return to Lead ID Input</a></p>
+        </body></html>
+      `
+    };
+  }
+}
+
+// **BUILD STANDALONE HTML WITH COMPLETE ATTOM DATA**
+function buildStandaloneHTML(data) {
+  const { leadId, personData, propertyAddress, attomData, attomError, intelligenceData } = data;
+  
+  // Format ATTOM data display
+  let attomSection = '';
+  if (attomData) {
+    const building = attomData.building || {};
+    const lot = attomData.lot || {};
+    const assessment = attomData.assessment || {};
+    const vintage = attomData.vintage || {};
+    
+    attomSection = `
+      <div class="attom-panel">
+        <h2>🏠 ATTOM Property Intelligence</h2>
+        <div class="attom-grid">
+          <div class="attom-card">
+            <h3>Building Details</h3>
+            <p><strong>Bedrooms:</strong> ${building.rooms?.beds || 'N/A'}</p>
+            <p><strong>Bathrooms:</strong> ${building.rooms?.bathstotal || 'N/A'}</p>
+            <p><strong>Square Feet:</strong> ${building.size?.bldgsize || 'N/A'}</p>
+            <p><strong>Year Built:</strong> ${vintage.yearbuilt || 'N/A'}</p>
+            <p><strong>Stories:</strong> ${building.rooms?.stories || 'N/A'}</p>
+            <p><strong>Parking Spaces:</strong> ${building.parking?.prkgSpaces || 'N/A'}</p>
+          </div>
+          <div class="attom-card">
+            <h3>Lot Information</h3>
+            <p><strong>Lot Size (sqft):</strong> ${lot.lotsize1 || 'N/A'}</p>
+            <p><strong>Acres:</strong> ${lot.lotsize2 || 'N/A'}</p>
+            <p><strong>Pool:</strong> ${lot.pooltype || 'No'}</p>
+          </div>
+          <div class="attom-card">
+            <h3>Assessment & Tax</h3>
+            <p><strong>Assessed Value:</strong> $${assessment.assessed?.assdttlvalue?.toLocaleString() || 'N/A'}</p>
+            <p><strong>Tax Amount:</strong> $${assessment.tax?.taxamt?.toLocaleString() || 'N/A'}</p>
+            <p><strong>Tax Year:</strong> ${assessment.tax?.taxyear || 'N/A'}</p>
+          </div>
+          <div class="attom-card">
+            <h3>Market Data</h3>
+            <p><strong>Market Value:</strong> $${assessment.market?.mktttlvalue?.toLocaleString() || 'N/A'}</p>
+            <p><strong>Improvement Value:</strong> $${assessment.market?.mktimprvalue?.toLocaleString() || 'N/A'}</p>
+            <p><strong>Land Value:</strong> $${assessment.market?.mktlandvalue?.toLocaleString() || 'N/A'}</p>
+          </div>
+        </div>
+        <div class="raw-json">
+          <details>
+            <summary>Complete ATTOM JSON Response</summary>
+            <pre>${JSON.stringify(attomData, null, 2)}</pre>
+          </details>
+        </div>
+      </div>
+    `;
+  } else if (attomError) {
+    attomSection = `
+      <div class="attom-panel error">
+        <h2>⚠️ ATTOM Data Error</h2>
+        <p>${attomError}</p>
+      </div>
+    `;
+  } else {
+    attomSection = `
+      <div class="attom-panel warning">
+        <h2>⚠️ No Property Address</h2>
+        <p>Cannot fetch ATTOM data without a property address.</p>
+      </div>
+    `;
+  }
+  
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WILLOW V50 Standalone - Lead ${leadId}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      color: #1a202c;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header h1 {
+      font-size: 32px;
+      color: #2563eb;
+      margin-bottom: 10px;
+    }
+    .lead-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .lead-info-item {
+      background: #f8fafc;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #2563eb;
+    }
+    .lead-info-item label {
+      font-weight: 600;
+      color: #64748b;
+      font-size: 12px;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .lead-info-item .value {
+      font-size: 18px;
+      color: #1a202c;
+    }
+    .intelligence-panel {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .intelligence-panel h2 {
+      color: #2563eb;
+      margin-bottom: 20px;
+    }
+    .score-display {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 36px;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .score-details {
+      flex: 1;
+    }
+    .score-bar {
+      background: #e2e8f0;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .score-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s;
+    }
+    .attom-panel {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .attom-panel h2 {
+      color: #2563eb;
+      margin-bottom: 20px;
+    }
+    .attom-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .attom-card {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #16a34a;
+    }
+    .attom-card h3 {
+      color: #16a34a;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    .attom-card p {
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+    .attom-card strong {
+      color: #64748b;
+    }
+    .raw-json {
+      margin-top: 30px;
+    }
+    .raw-json details {
+      background: #f1f5f9;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .raw-json summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #2563eb;
+      margin-bottom: 15px;
+    }
+    .raw-json pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .attom-panel.error {
+      border-left: 4px solid #dc2626;
+    }
+    .attom-panel.warning {
+      border-left: 4px solid #eab308;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge.critical { background: #fee2e2; color: #dc2626; }
+    .badge.super-hot { background: #fed7aa; color: #ea580c; }
+    .badge.hot { background: #fef3c7; color: #eab308; }
+    .badge.warm { background: #dbeafe; color: #2563eb; }
+    .badge.cold { background: #e5e7eb; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔥 WILLOW V50 Standalone Mode</h1>
+      <p>Desktop Power User Interface - Lead ID: <strong>${leadId}</strong></p>
+      <div class="lead-info">
+        <div class="lead-info-item">
+          <label>Lead Name</label>
+          <div class="value">${personData.name || 'Unknown'}</div>
+        </div>
+        <div class="lead-info-item">
+          <label>Email</label>
+          <div class="value">${personData.emails && personData.emails[0] ? personData.emails[0].value : 'N/A'}</div>
+        </div>
+        <div class="lead-info-item">
+          <label>Phone</label>
+          <div class="value">${personData.phones && personData.phones[0] ? personData.phones[0].value : 'N/A'}</div>
+        </div>
+        <div class="lead-info-item">
+          <label>Property Address</label>
+          <div class="value">${propertyAddress || 'Not available'}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="intelligence-panel">
+      <h2>🧠 Enhanced Behavioral Intelligence V4.0</h2>
+      <div class="score-display">
+        <div class="score-circle">${intelligenceData.totalScore}</div>
+        <div class="score-details">
+          <p style="font-size: 24px; font-weight: 600; margin-bottom: 10px;">
+            Classification: <span class="badge ${intelligenceData.classification.toLowerCase().replace('_', '-')}">${intelligenceData.classification}</span>
+          </p>
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>Fello Intelligence (35%)</span>
+              <strong>${intelligenceData.components.fello}</strong>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" style="width: ${(intelligenceData.components.fello/35)*100}%"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>CloudCMA (25%)</span>
+              <strong>${intelligenceData.components.cloudCMA}</strong>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" style="width: ${(intelligenceData.components.cloudCMA/25)*100}%"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>WILLOW (25%)</span>
+              <strong>${intelligenceData.components.willow}</strong>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" style="width: ${(intelligenceData.components.willow/25)*100}%"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>Sierra Intelligence (15%)</span>
+              <strong>${intelligenceData.components.sierra}</strong>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" style="width: ${(intelligenceData.components.sierra/15)*100}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      ${intelligenceData.triggeredPatterns.length > 0 ? `
+        <div style="margin-top: 20px;">
+          <h3>Triggered Patterns:</h3>
+          ${intelligenceData.triggeredPatterns.map(t => `<span class="badge ${t.severity.toLowerCase()}">${t.name}</span>`).join(' ')}
+        </div>
+      ` : ''}
+    </div>
+    
+    ${attomSection}
+  </div>
+</body>
+</html>
+  `;
+}
+
 // **MAIN HANDLER WITH COMPLETE AJAX ROUTING**
 exports.handler = async (event, context) => {
   console.log('WILLOW V50 Complete Rewrite - Function invoked with mastery');
@@ -295,6 +690,12 @@ exports.handler = async (event, context) => {
       headers: baseHeaders, 
       body: '' 
     };
+  }
+  
+  // **STANDALONE MODE: Check for ?leadId= parameter FIRST**
+  if (params.leadId) {
+    console.log('🚀 STANDALONE MODE ACTIVATED - leadId:', params.leadId);
+    return await handleStandaloneMode(params.leadId, baseHeaders);
   }
   
   // **AJAX REQUEST ROUTING - THE CORE FIX**
