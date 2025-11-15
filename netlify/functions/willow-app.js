@@ -102,7 +102,7 @@ function attomPropertyLookup(address) {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api.gateway.attomdata.com',
-      path: `/propertyapi/v1.0.0/property/expandedprofile?address1=${encodeURIComponent(address)}`,
+      path: `/propertyapi/v1.0.0/property/expandedprofile?address=${encodeURIComponent(address)}`,
       method: 'GET',
       headers: {
         'Accept': 'application/json',
