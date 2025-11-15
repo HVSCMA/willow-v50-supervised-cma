@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WILLOW V50 Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+    
+    /* Header */
+    .header {
+      background: white;
+      padding: 24px 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header-left h1 {
+      font-size: 28px;
+      color: #2563eb;
+      margin-bottom: 4px;
+    }
+    
+    .header-left p {
+      color: #64748b;
+      font-size: 14px;
+    }
+    
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    .user-info {
+      text-align: right;
+    }
+    
+    .user-name {
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 15px;
+    }
+    
+    .user-role {
+      font-size: 13px;
+      color: #64748b;
+    }
+    
+    .user-role.admin {
+      color: #2563eb;
+      font-weight: 600;
+    }
+    
+    .logout-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .logout-btn:hover {
+      background: #dc2626;
+      transform: translateY(-1px);
+    }
+    
+    /* Search Panel */
+    .search-panel {
+      background: white;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    
+    .search-panel h2 {
+      color: #1e293b;
+      font-size: 22px;
+      margin-bottom: 24px;
+    }
+    
+    .search-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .search-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .search-field label {
+      font-weight: 600;
+      color: #334155;
+      font-size: 14px;
+    }
+    
+    .search-field input {
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    
+    .search-field input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .search-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #334155;
+    }
+    
+    .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    /* Content Area */
+    .content-area {
+      background: white;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      min-height: 600px;
+    }
+    
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 400px;
+      color: #64748b;
+    }
+    
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #64748b;
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    
+    .empty-state h3 {
+      color: #1e293b;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+    
+    .empty-state p {
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      color: #64748b;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    
+    .tab:hover {
+      color: #2563eb;
+    }
+    
+    .tab.active {
+      color: #2563eb;
+      border-bottom-color: #2563eb;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* Admin Controls */
+    .admin-controls {
+      background: #fef3c7;
+      border: 2px solid #fbbf24;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: none;
+    }
+    
+    .admin-controls.show {
+      display: block;
+    }
+    
+    .admin-controls h3 {
+      color: #92400e;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    
+    .admin-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .admin-btn {
+      padding: 8px 16px;
+      background: white;
+      border: 1px solid #fbbf24;
+      border-radius: 6px;
+      color: #92400e;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .admin-btn:hover {
+      background: #fef3c7;
+    }
+    
+    /* Error Display */
+    .error-message {
+      background: #fee2e2;
+      color: #dc2626;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #dc2626;
+      display: none;
+    }
+    
+    .error-message.show {
+      display: block;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+      }
+      
+      .header-right {
+        flex-direction: column;
+        width: 100%;
+      }
+      
+      .logout-btn {
+        width: 100%;
+      }
+      
+      .search-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .search-actions {
+        flex-direction: column;
+      }
+      
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <h1>🔥 WILLOW V50 Intelligence Platform</h1>
+        <p>Real-time lead intelligence and CMA generation</p>
+      </div>
+      <div class="header-right">
+        <div class="user-info">
+          <div class="user-name" id="userName">Loading...</div>
+          <div class="user-role" id="userRole"></div>
+        </div>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+    
+    <!-- Admin Controls (only visible to Glenn) -->
+    <div class="admin-controls" id="adminControls">
+      <h3>🔧 Admin Controls</h3>
+      <div class="admin-actions">
+        <button class="admin-btn" onclick="bulkOperations()">Bulk Operations</button>
+        <button class="admin-btn" onclick="systemSettings()">System Settings</button>
+        <button class="admin-btn" onclick="viewAuditLog()">Audit Log</button>
+        <button class="admin-btn" onclick="manageUsers()">Manage Users</button>
+      </div>
+    </div>
+    
+    <!-- Search Panel -->
+    <div class="search-panel">
+      <h2>🔍 Lead Intelligence Search</h2>
+      <div class="search-grid">
+        <div class="search-field">
+          <label for="leadId">Lead ID</label>
+          <input 
+            type="number" 
+            id="leadId" 
+            placeholder="Enter FUB Lead ID (e.g., 1429)"
+          >
+        </div>
+        <div class="search-field">
+          <label for="leadName">Lead Name</label>
+          <input 
+            type="text" 
+            id="leadName" 
+            placeholder="Search by name"
+          >
+        </div>
+        <div class="search-field">
+          <label for="leadEmail">Email Address</label>
+          <input 
+            type="email" 
+            id="leadEmail" 
+            placeholder="Search by email"
+          >
+        </div>
+      </div>
+      <div class="search-actions">
+        <button class="btn btn-primary" onclick="loadLead()">
+          🚀 Load Intelligence
+        </button>
+        <button class="btn btn-secondary" onclick="clearSearch()">
+          Clear
+        </button>
+      </div>
+    </div>
+    
+    <!-- Error Display -->
+    <div class="error-message" id="errorMessage"></div>
+    
+    <!-- Content Area -->
+    <div class="content-area">
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="intelligence" onclick="switchTab('intelligence')">
+          🧠 Intelligence
+        </button>
+        <button class="tab" data-tab="cma" onclick="switchTab('cma')">
+          📊 CMA Generation
+        </button>
+        <button class="tab" data-tab="activity" onclick="switchTab('activity')">
+          📈 Activity
+        </button>
+        <button class="tab" data-tab="actions" onclick="switchTab('actions')">
+          ⚡ Actions
+        </button>
+      </div>
+      
+      <!-- Tab Content -->
+      <div class="tab-content active" id="intelligence-tab">
+        <div class="empty-state">
+          <div class="empty-state-icon">🎯</div>
+          <h3>Ready to Load Intelligence</h3>
+          <p>Enter a Lead ID above to view complete behavioral intelligence,<br>ATTOM property data, and generate CMAs.</p>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="cma-tab">
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <h3>CMA Generation</h3>
+          <p>Load a lead first to access CMA generation tools.</p>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="activity-tab">
+        <div class="empty-state">
+          <div class="empty-state-icon">📈</div>
+          <h3>Activity Timeline</h3>
+          <p>View lead engagement history, email opens, and property views.</p>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="actions-tab">
+        <div class="empty-state">
+          <div class="empty-state-icon">⚡</div>
+          <h3>Quick Actions</h3>
+          <p>Create tasks, add notes, send emails, and update FUB custom fields.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Global state
+    let currentUser = null;
+    let currentLead = null;
+    let authToken = null;
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAuth();
+    });
+    
+    function checkAuth() {
+      authToken = localStorage.getItem('willow_token');
+      const userStr = localStorage.getItem('willow_user');
+      
+      if (!authToken || !userStr) {
+        window.location.href = '/login.html';
+        return;
+      }
+      
+      try {
+        currentUser = JSON.parse(userStr);
+        displayUserInfo();
+        
+        // Show admin controls if user is admin
+        if (currentUser.role === 'admin') {
+          document.getElementById('adminControls').classList.add('show');
+        }
+        
+      } catch (error) {
+        console.error('Error loading user info:', error);
+        logout();
+      }
+    }
+    
+    function displayUserInfo() {
+      document.getElementById('userName').textContent = currentUser.name;
+      const roleElement = document.getElementById('userRole');
+      roleElement.textContent = currentUser.role.toUpperCase();
+      if (currentUser.role === 'admin') {
+        roleElement.classList.add('admin');
+      }
+    }
+    
+    function logout() {
+      localStorage.removeItem('willow_token');
+      localStorage.removeItem('willow_user');
+      window.location.href = '/login.html';
+    }
+    
+    function switchTab(tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+      
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+    }
+    
+    async function loadLead() {
+      const leadId = document.getElementById('leadId').value.trim();
+      const leadName = document.getElementById('leadName').value.trim();
+      const leadEmail = document.getElementById('leadEmail').value.trim();
+      
+      if (!leadId && !leadName && !leadEmail) {
+        showError('Please enter a Lead ID, Name, or Email to search.');
+        return;
+      }
+      
+      hideError();
+      showLoading('Loading WILLOW intelligence...');
+      
+      try {
+        // Build query parameters
+        let url = '/.netlify/functions/willow-app?';
+        if (leadId) {
+          url += `leadId=${encodeURIComponent(leadId)}`;
+        } else if (leadName) {
+          url += `name=${encodeURIComponent(leadName)}`;
+        } else if (leadEmail) {
+          url += `email=${encodeURIComponent(leadEmail)}`;
+        }
+        
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Accept': 'text/html'
+          }
+        });
+        
+        if (response.status === 401) {
+          showError('Session expired. Please login again.');
+          setTimeout(logout, 2000);
+          return;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const html = await response.text();
+        
+        // Display intelligence in tab
+        document.getElementById('intelligence-tab').innerHTML = html;
+        
+        // Switch to intelligence tab
+        switchTab('intelligence');
+        
+      } catch (error) {
+        console.error('Load lead error:', error);
+        showError(`Failed to load lead: ${error.message}`);
+      }
+    }
+    
+    function clearSearch() {
+      document.getElementById('leadId').value = '';
+      document.getElementById('leadName').value = '';
+      document.getElementById('leadEmail').value = '';
+      hideError();
+    }
+    
+    function showLoading(message) {
+      const tab = document.getElementById('intelligence-tab');
+      tab.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+    
+    function showError(message) {
+      const errorDiv = document.getElementById('errorMessage');
+      errorDiv.textContent = message;
+      errorDiv.classList.add('show');
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        hideError();
+      }, 5000);
+    }
+    
+    function hideError() {
+      document.getElementById('errorMessage').classList.remove('show');
+    }
+    
+    // Admin functions
+    function bulkOperations() {
+      alert('Bulk Operations - Coming soon!\n\nFeatures:\n- Bulk CMA generation\n- Batch lead processing\n- Export reports');
+    }
+    
+    function systemSettings() {
+      alert('System Settings - Coming soon!\n\nFeatures:\n- API configuration\n- Integration settings\n- Performance tuning');
+    }
+    
+    function viewAuditLog() {
+      alert('Audit Log - Coming soon!\n\nFeatures:\n- User activity tracking\n- System events\n- Security monitoring');
+    }
+    
+    function manageUsers() {
+      alert('User Management - Coming soon!\n\nFeatures:\n- Add/remove users\n- Role assignment\n- Permission management');
+    }
+    
+    // Enter key support
+    document.getElementById('leadId').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadLead();
+    });
+    document.getElementById('leadName').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadLead();
+    });
+    document.getElementById('leadEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadLead();
+    });
+  </script>
+</body>
+</html>
