@@ -167,10 +167,26 @@ async function loadIntelligence() {
     updateScoreDisplay();
     updateTriggerDisplay();
     
-    // Try to get address for smart defaults
-    const address = currentContext.person?.address || 
-                   (currentContext.person?.emails?.[0]?.value ? 
-                    await getLeadAddress(currentLeadId) : null);
+    // Try to get address for smart defaults from multiple sources
+    let address = null;
+    
+    // 1. Check FUB person data first
+    if (currentContext.person?.address) {
+      address = currentContext.person.address;
+    }
+    
+    // 2. Check custom fields
+    if (!address && currentIntelligence.customFields) {
+      address = currentIntelligence.customFields.customWILLOWCMAAddress || 
+                currentIntelligence.customFields.customAddress || null;
+    }
+    
+    // 3. Try to fetch from FUB API
+    if (!address) {
+      address = await getLeadAddress(currentLeadId);
+    }
+    
+    console.log('🏠 Address for smart defaults:', address);
     
     if (address) {
       console.log('🏠 Loading smart defaults for address:', address);
@@ -264,13 +280,12 @@ async function loadSmartDefaults(address) {
   console.log('🎛️ Loading smart defaults for:', address);
   
   try {
-    const response = await fetch('/.netlify/functions/cma-smart-defaults', {
+    const response = await fetch('/.netlify/functions/cma-smart-defaults-embedded', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        address: address,
-        propertyValue: currentIntelligence?.propertyValue || null,
-        leadId: currentLeadId
+        leadId: currentLeadId,
+        address: address
       })
     });
     
@@ -279,22 +294,24 @@ async function loadSmartDefaults(address) {
       return;
     }
     
-    smartDefaults = await response.json();
-    console.log('✅ Smart defaults loaded:', smartDefaults);
+    const data = await response.json();
+    console.log('✅ Smart defaults loaded:', data);
     
-    // Update UI
-    if (smartDefaults.property) {
-      updatePropertyDisplay(smartDefaults.property);
+    smartDefaults = data;
+    
+    // Update UI with property data
+    if (data.property && data.property.address) {
+      updatePropertyDisplay(data.property);
     }
     
     // Apply defaults to sliders
-    if (smartDefaults.defaults) {
-      applyDefaultsToSliders(smartDefaults.defaults);
+    if (data.defaults) {
+      applyDefaultsToSliders(data.defaults);
     }
     
     // Update reasoning text
-    if (smartDefaults.reasoning) {
-      updateReasoningDisplay(smartDefaults.reasoning);
+    if (data.defaults && data.defaults.reasoning) {
+      updateReasoningDisplay(data.defaults.reasoning);
     }
     
   } catch (error) {
@@ -304,14 +321,14 @@ async function loadSmartDefaults(address) {
 
 // Update property display
 function updatePropertyDisplay(property) {
-  console.log('🏠 Updating property display');
+  console.log('🏠 Updating property display', property);
   
   const section = document.getElementById('property-section');
   section.style.display = 'block';
   
-  document.getElementById('property-address').textContent = property.address || 'Unknown';
-  document.getElementById('property-value').textContent = formatCurrency(property.value);
-  document.getElementById('property-type').textContent = property.type || 'Unknown';
+  document.getElementById('property-address').textContent = property.address || 'No address available';
+  document.getElementById('property-value').textContent = formatCurrency(property.estimatedValue || property.value);
+  document.getElementById('property-type').textContent = property.propertyType || property.type || 'Residential';
 }
 
 // Apply defaults to sliders
