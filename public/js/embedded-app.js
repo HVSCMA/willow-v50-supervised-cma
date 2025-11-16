@@ -418,12 +418,22 @@ async function generateCMA() {
     btnText.textContent = 'Generating...';
     
     // Get current parameter values
+    const property = smartDefaults?.property || {};
     const params = {
-      leadId: currentLeadId,
-      address: smartDefaults?.property?.address || currentContext.person?.address,
+      // Required by cloudcma-generate.js
+      address: property.address || currentContext.person?.address || '',
+      centerValue: property.value || null,
+      beds: property.beds || null,
+      baths: property.baths || null,
+      sqft: property.sqft || null,
+      propertyType: property.type || null,
       radius: parseFloat(document.getElementById('radius-slider').value),
       daysBack: parseInt(document.getElementById('days-slider').value),
-      comps: parseInt(document.getElementById('comps-slider').value),
+      comparableCount: parseInt(document.getElementById('comps-slider').value),
+      title: `CMA Report - ${property.address || currentContext.person?.name || 'Property'}`,
+      notes: `Generated from WILLOW V50 for ${currentContext.person?.name || 'Lead'} | Variance: ${parseFloat(document.getElementById('variance-slider').value)}%`,
+      // Also pass FUB data for sync
+      leadId: currentLeadId,
       variance: parseFloat(document.getElementById('variance-slider').value)
     };
     
@@ -443,13 +453,18 @@ async function generateCMA() {
     const result = await response.json();
     console.log('✅ CMA generated:', result);
     
+    // Open CloudCMA in new tab
+    if (result.cma && result.cma.editUrl) {
+      window.open(result.cma.editUrl, '_blank');
+    }
+    
     // Success!
     btnText.innerHTML = '✓ CMA Generated';
     btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
     
     // Sync to FUB
     await syncToFUB({
-      cmaUrl: result.url,
+      cmaUrl: result.cma?.editUrl || '',
       cmaDate: new Date().toISOString(),
       parameters: params
     });
