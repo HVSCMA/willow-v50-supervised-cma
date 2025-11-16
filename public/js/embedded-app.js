@@ -149,10 +149,9 @@ async function loadIntelligence() {
   try {
     // Fetch behavioral scoring
     console.log('📡 Fetching behavioral scoring...');
-    const scoreResponse = await fetch('/.netlify/functions/behavioral-scoring', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ leadId: currentLeadId })
+    const scoreResponse = await fetch(`/.netlify/functions/behavioral-scoring?personId=${currentLeadId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
     });
     
     if (!scoreResponse.ok) {
@@ -210,21 +209,24 @@ function updateScoreDisplay() {
     return;
   }
   
-  const { overallScore, priority, breakdown } = currentIntelligence;
+  // behavioral-scoring returns: enhancedBehavioralScore, priority, breakdown
+  const score = currentIntelligence.enhancedBehavioralScore;
+  const priority = currentIntelligence.priority;
+  const breakdown = currentIntelligence.breakdown;
   
   // Overall score
-  document.getElementById('score-value').textContent = overallScore || '--';
+  document.getElementById('score-value').textContent = score || '--';
   
   // Priority badge
   const badge = document.getElementById('priority-badge');
   badge.textContent = priority || 'UNKNOWN';
   badge.className = `priority-badge priority-${(priority || 'unknown').toLowerCase().replace('_', '-')}`;
   
-  // Source breakdown
-  document.getElementById('fello-score').textContent = breakdown?.fello?.score || '--';
-  document.getElementById('cloudcma-score').textContent = breakdown?.cloudcma?.score || '--';
-  document.getElementById('willow-score').textContent = breakdown?.willow?.score || '--';
-  document.getElementById('sierra-score').textContent = breakdown?.sierra?.score || '--';
+  // Source breakdown (breakdown has: fello, cloudCMA, willow, sierra)
+  document.getElementById('fello-score').textContent = breakdown?.fello || '--';
+  document.getElementById('cloudcma-score').textContent = breakdown?.cloudCMA || '--';
+  document.getElementById('willow-score').textContent = breakdown?.willow || '--';
+  document.getElementById('sierra-score').textContent = breakdown?.sierra || '--';
   
   console.log('✅ Score display updated');
 }
@@ -233,7 +235,8 @@ function updateScoreDisplay() {
 function updateTriggerDisplay() {
   console.log('🎯 Updating trigger display...');
   
-  const triggers = currentIntelligence?.triggers?.filter(t => t.triggered) || [];
+  // behavioral-scoring returns activeTriggers as an array of strings
+  const triggers = currentIntelligence?.activeTriggers || [];
   const triggerCount = triggers.length;
   
   console.log(`Found ${triggerCount} active triggers`);
@@ -247,12 +250,12 @@ function updateTriggerDisplay() {
     return;
   }
   
-  listEl.innerHTML = triggers.slice(0, 3).map(trigger => `
+  // activeTriggers is an array of strings like ['High Fello Engagement', 'Recent CMA View']
+  listEl.innerHTML = triggers.slice(0, 3).map(triggerName => `
     <div class="trigger-item">
-      <div class="trigger-icon">${getTriggerIcon(trigger.pattern)}</div>
+      <div class="trigger-icon">${getTriggerIcon(triggerName)}</div>
       <div class="trigger-content">
-        <div class="trigger-title">${trigger.name}</div>
-        <div class="trigger-detail">${trigger.detail || trigger.source}</div>
+        <div class="trigger-title">${triggerName}</div>
       </div>
     </div>
   `).join('');
@@ -260,8 +263,15 @@ function updateTriggerDisplay() {
   console.log('✅ Trigger display updated');
 }
 
-// Get icon for trigger pattern
-function getTriggerIcon(pattern) {
+// Get icon for trigger name
+function getTriggerIcon(triggerName) {
+  // Match trigger names to icons
+  if (triggerName.includes('Fello') || triggerName.includes('Engagement')) return '🔥';
+  if (triggerName.includes('CMA') || triggerName.includes('Homebeat')) return '📊';
+  if (triggerName.includes('Luxury') || triggerName.includes('Property')) return '💎';
+  if (triggerName.includes('View') || triggerName.includes('Showing')) return '👁️';
+  return '⚡'; // default icon
+  
   const icons = {
     'cma_request': '📊',
     'property_view': '👁️',
