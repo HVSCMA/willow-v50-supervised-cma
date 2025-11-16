@@ -42,49 +42,50 @@ async function fetchFUBPerson(personId) {
 // ============================================================================
 function calculateFelloScore(person) {
   let score = 0;
-  const custom = person.custom || {};
   
   console.log('📊 Fello Fields:', {
-    iq: custom.customFelloIQ,
-    engagement: custom.customFelloEngagement,
-    timeline: custom.customFelloTimeline,
-    clicks: custom.customFelloDashboardClicks,
-    submissions: custom.customFelloFormSubmissions,
-    lastActivity: custom.customFelloLastActivity
+    leadScore: person.customFelloLeadScore,
+    emailClicks: person.customFelloOfEmailClicks,
+    dashboardClicks: person.customFelloOfDashboardClicks,
+    formSubmissions: person.customFelloOfFormSubmissions,
+    timeline: person.customFelloSellingTimeline,
+    lastEmailClick: person.customFelloLastEmailClickDate,
+    lastLeadType: person.customFelloLastLeadType
   });
 
-  // Fello IQ Score (0-100 direct mapping) - 40% of Fello score
-  if (custom.customFelloIQ) {
-    const felloIQ = parseFloat(custom.customFelloIQ) || 0;
-    score += felloIQ * 0.4;
+  // Fello Lead Score (0-100 direct mapping) - 40% of Fello score
+  if (person.customFelloLeadScore) {
+    const felloScore = parseFloat(person.customFelloLeadScore) || 0;
+    score += felloScore * 0.4;
   }
 
-  // Engagement Level - 25% of Fello score
-  if (custom.customFelloEngagement) {
-    const engagement = custom.customFelloEngagement.toLowerCase();
-    if (engagement.includes('high') || engagement.includes('hot')) score += 25;
-    else if (engagement.includes('medium') || engagement.includes('warm')) score += 15;
-    else if (engagement.includes('low') || engagement.includes('cold')) score += 5;
+  // Email Click Engagement - 25% of Fello score
+  if (person.customFelloOfEmailClicks) {
+    const clicks = parseInt(person.customFelloOfEmailClicks) || 0;
+    if (clicks >= 10) score += 25;
+    else if (clicks >= 5) score += 20;
+    else if (clicks >= 2) score += 15;
+    else if (clicks >= 1) score += 10;
   }
 
   // Dashboard Clicks - 15% of Fello score
-  if (custom.customFelloDashboardClicks) {
-    const clicks = parseInt(custom.customFelloDashboardClicks) || 0;
+  if (person.customFelloOfDashboardClicks) {
+    const clicks = parseInt(person.customFelloOfDashboardClicks) || 0;
     if (clicks >= 10) score += 15;
     else if (clicks >= 5) score += 10;
     else if (clicks >= 1) score += 5;
   }
 
   // Form Submissions - 10% of Fello score
-  if (custom.customFelloFormSubmissions) {
-    const submissions = parseInt(custom.customFelloFormSubmissions) || 0;
+  if (person.customFelloOfFormSubmissions) {
+    const submissions = parseInt(person.customFelloOfFormSubmissions) || 0;
     if (submissions >= 3) score += 10;
     else if (submissions >= 1) score += 5;
   }
 
   // Timeline Urgency - 10% of Fello score
-  if (custom.customFelloTimeline) {
-    const timeline = custom.customFelloTimeline.toLowerCase();
+  if (person.customFelloSellingTimeline) {
+    const timeline = person.customFelloSellingTimeline.toLowerCase();
     if (timeline.includes('immediate') || timeline.includes('30') || timeline.includes('1-3')) score += 10;
     else if (timeline.includes('90') || timeline.includes('3-6')) score += 7;
     else if (timeline.includes('6')) score += 3;
@@ -99,32 +100,30 @@ function calculateFelloScore(person) {
 // ============================================================================
 function calculateCloudCMAScore(person) {
   let score = 0;
-  const custom = person.custom || {};
 
   console.log('📊 CloudCMA Fields:', {
-    views: custom.customCloudCMAViews,
-    lastView: custom.customCloudCMALastView,
-    engagement: custom.customCloudCMAEngagement,
-    homebeatActive: custom.customCloudCMAHomebeatActive,
-    reportURL: custom.customCloudCMAReportURL
+    homebeatViews: person.customWILLOWHomebeatViews,
+    homebeatLastView: person.customWILLOWHomebeatLastView,
+    cloudCMACreated: person.customWILLOWCloudCMACreated,
+    homeBeatURL: person.customWILLOWCloudCMAHomeBeatURL
   });
 
   // CMA Report Exists - 20% of CloudCMA score
-  if (custom.customCloudCMAReportURL) {
+  if (person.customWILLOWCloudCMAHomeBeatURL || person.customWILLOWCloudCMACreated) {
     score += 20;
   }
 
-  // CMA Views - 30% of CloudCMA score
-  if (custom.customCloudCMAViews) {
-    const views = parseInt(custom.customCloudCMAViews) || 0;
+  // Homebeat Views - 30% of CloudCMA score
+  if (person.customWILLOWHomebeatViews) {
+    const views = parseInt(person.customWILLOWHomebeatViews) || 0;
     if (views >= 10) score += 30;
     else if (views >= 5) score += 20;
     else if (views >= 1) score += 10;
   }
 
-  // Last View Recency - 25% of CloudCMA score
-  if (custom.customCloudCMALastView) {
-    const lastView = new Date(custom.customCloudCMALastView);
+  // Last Homebeat View Recency - 25% of CloudCMA score
+  if (person.customWILLOWHomebeatLastView) {
+    const lastView = new Date(person.customWILLOWHomebeatLastView);
     const now = new Date();
     const daysSince = (now - lastView) / (1000 * 60 * 60 * 24);
     
@@ -133,16 +132,19 @@ function calculateCloudCMAScore(person) {
     else if (daysSince <= 90) score += 5;
   }
 
-  // Homebeat Active - 15% of CloudCMA score
-  if (custom.customCloudCMAHomebeatActive) {
-    const active = custom.customCloudCMAHomebeatActive.toLowerCase();
-    if (active === 'true' || active === 'yes' || active === 'active') score += 15;
+  // Homebeat Active - 25% of CloudCMA score
+  if (person.customWILLOWCloudCMAHomeBeatURL) {
+    score += 25;
   }
 
-  // CloudCMA Engagement Score - 10% of CloudCMA score
-  if (custom.customCloudCMAEngagement) {
-    const engagement = parseFloat(custom.customCloudCMAEngagement) || 0;
-    score += engagement * 0.1;
+  // CloudCMA Created Date Recency - 10% of CloudCMA score  
+  if (person.customWILLOWCloudCMACreated) {
+    const created = new Date(person.customWILLOWCloudCMACreated);
+    const now = new Date();
+    const daysSince = (now - created) / (1000 * 60 * 60 * 24);
+    
+    if (daysSince <= 30) score += 10;
+    else if (daysSince <= 90) score += 5;
   }
 
   console.log(`✅ CloudCMA Score: ${score.toFixed(1)}/100`);
@@ -154,25 +156,24 @@ function calculateCloudCMAScore(person) {
 // ============================================================================
 function calculateWILLOWScore(person) {
   let score = 0;
-  const custom = person.custom || {};
 
   console.log('📊 WILLOW Fields:', {
-    cmaDate: custom.customWILLOWCMADate,
-    centerValue: custom.customWILLOWCenterValue,
-    priorityLevel: custom.customWILLOWPriorityLevel,
-    behavioralScore: custom.customWILLOWBehavioralScoreV40,
-    propertyType: custom.customWILLOW_property_type
+    cmaDate: person.customWILLOWCMADate,
+    centerValue: person.customWILLOWCenterValue,
+    priorityLevel: person.customWILLOWPriorityLevel,
+    hotScore: person.customWILLOWHotScore,
+    cmaLink: person.customWILLOWCMALink
   });
 
-  // Previous Behavioral Score - 30% of WILLOW score
-  if (custom.customWILLOWBehavioralScoreV40) {
-    const prevScore = parseFloat(custom.customWILLOWBehavioralScoreV40) || 0;
+  // Previous Hot Score - 30% of WILLOW score
+  if (person.customWILLOWHotScore) {
+    const prevScore = parseFloat(person.customWILLOWHotScore) || 0;
     score += prevScore * 0.3;
   }
 
   // CMA Recency - 25% of WILLOW score
-  if (custom.customWILLOWCMADate) {
-    const cmaDate = new Date(custom.customWILLOWCMADate);
+  if (person.customWILLOWCMADate) {
+    const cmaDate = new Date(person.customWILLOWCMADate);
     const now = new Date();
     const daysSince = (now - cmaDate) / (1000 * 60 * 60 * 24);
     
@@ -183,8 +184,8 @@ function calculateWILLOWScore(person) {
   }
 
   // Property Value (Luxury Indicator) - 20% of WILLOW score
-  if (custom.customWILLOWCenterValue) {
-    const value = parseFloat(custom.customWILLOWCenterValue) || 0;
+  if (person.customWILLOWCenterValue) {
+    const value = parseFloat(person.customWILLOWCenterValue) || 0;
     if (value >= 2000000) score += 20; // $2M+ = ultra-luxury
     else if (value >= 1000000) score += 15; // $1M+ = luxury
     else if (value >= 750000) score += 10; // $750K+ = upper
@@ -192,8 +193,8 @@ function calculateWILLOWScore(person) {
   }
 
   // Priority Level - 15% of WILLOW score
-  if (custom.customWILLOWPriorityLevel) {
-    const priority = custom.customWILLOWPriorityLevel.toUpperCase();
+  if (person.customWILLOWPriorityLevel) {
+    const priority = person.customWILLOWPriorityLevel.toUpperCase();
     if (priority === 'CRITICAL') score += 15;
     else if (priority === 'SUPER_HOT') score += 12;
     else if (priority === 'HOT') score += 9;
@@ -201,8 +202,8 @@ function calculateWILLOWScore(person) {
     else if (priority === 'COLD') score += 3;
   }
 
-  // ATTOM Property Data Available - 10% of WILLOW score
-  if (custom.customWILLOW_property_type && custom.customWILLOW_property_sqft) {
+  // CMA Link Exists - 10% of WILLOW score
+  if (person.customWILLOWCMALink) {
     score += 10;
   }
 
@@ -215,19 +216,19 @@ function calculateWILLOWScore(person) {
 // ============================================================================
 function calculateSierraScore(person) {
   let score = 0;
-  const custom = person.custom || {};
 
   console.log('📊 Sierra Fields:', {
-    propertyViews: custom.customSierraPropertyViews,
-    savedListings: custom.customSierraSavedListings,
-    showingRequests: custom.customSierraShowingRequests,
-    searchActivity: custom.customSierraSearchActivity,
-    velocity: custom.customSierraEngagementVelocity
+    propertyViews: person.customSierraPropertyViews,
+    savedListings: person.customSierraSavedListings,
+    showingRequests: person.customSierraShowingRequests,
+    searchActivity: person.customSierraSearchActivity,
+    velocity: person.customSierraEngagementVelocity,
+    note: 'Sierra fields may not exist yet in FUB'
   });
 
   // Property Views - 30% of Sierra score
-  if (custom.customSierraPropertyViews) {
-    const views = parseInt(custom.customSierraPropertyViews) || 0;
+  if (person.customSierraPropertyViews) {
+    const views = parseInt(person.customSierraPropertyViews) || 0;
     if (views >= 20) score += 30;
     else if (views >= 10) score += 20;
     else if (views >= 5) score += 10;
@@ -235,32 +236,32 @@ function calculateSierraScore(person) {
   }
 
   // Saved Listings - 25% of Sierra score
-  if (custom.customSierraSavedListings) {
-    const saved = parseInt(custom.customSierraSavedListings) || 0;
+  if (person.customSierraSavedListings) {
+    const saved = parseInt(person.customSierraSavedListings) || 0;
     if (saved >= 10) score += 25;
     else if (saved >= 5) score += 15;
     else if (saved >= 1) score += 10;
   }
 
   // Showing Requests - 25% of Sierra score (highest intent indicator)
-  if (custom.customSierraShowingRequests) {
-    const showings = parseInt(custom.customSierraShowingRequests) || 0;
+  if (person.customSierraShowingRequests) {
+    const showings = parseInt(person.customSierraShowingRequests) || 0;
     if (showings >= 5) score += 25;
     else if (showings >= 2) score += 20;
     else if (showings >= 1) score += 15;
   }
 
   // Search Activity - 10% of Sierra score
-  if (custom.customSierraSearchActivity) {
-    const activity = custom.customSierraSearchActivity.toLowerCase();
+  if (person.customSierraSearchActivity) {
+    const activity = person.customSierraSearchActivity.toLowerCase();
     if (activity.includes('high') || activity.includes('daily')) score += 10;
     else if (activity.includes('medium') || activity.includes('weekly')) score += 7;
     else if (activity.includes('low') || activity.includes('monthly')) score += 3;
   }
 
   // Engagement Velocity - 10% of Sierra score
-  if (custom.customSierraEngagementVelocity) {
-    const velocity = custom.customSierraEngagementVelocity.toLowerCase();
+  if (person.customSierraEngagementVelocity) {
+    const velocity = person.customSierraEngagementVelocity.toLowerCase();
     if (velocity.includes('increasing') || velocity.includes('accelerating')) score += 10;
     else if (velocity.includes('steady') || velocity.includes('stable')) score += 5;
     else if (velocity.includes('declining')) score += 0;
@@ -301,41 +302,40 @@ function classifyPriority(score) {
 // ============================================================================
 function detectActiveTriggers(person, felloScore, cloudCMAScore, willowScore, sierraScore) {
   const triggers = [];
-  const custom = person.custom || {};
 
   // Trigger 1: High Fello Engagement
   if (felloScore >= 70) {
     triggers.push('High Fello Engagement');
   }
 
-  // Trigger 2: Recent CMA View
-  if (custom.customCloudCMALastView) {
-    const lastView = new Date(custom.customCloudCMALastView);
+  // Trigger 2: Recent Homebeat View
+  if (person.customWILLOWHomebeatLastView) {
+    const lastView = new Date(person.customWILLOWHomebeatLastView);
     const daysSince = (new Date() - lastView) / (1000 * 60 * 60 * 24);
     if (daysSince <= 7) {
-      triggers.push('CMA View (Last 7 Days)');
+      triggers.push('Homebeat View (Last 7 Days)');
     }
   }
 
   // Trigger 3: Luxury Property Interest
-  if (custom.customWILLOWCenterValue) {
-    const value = parseFloat(custom.customWILLOWCenterValue) || 0;
+  if (person.customWILLOWCenterValue) {
+    const value = parseFloat(person.customWILLOWCenterValue) || 0;
     if (value >= 750000) {
       triggers.push('Luxury Property ($750K+)');
     }
   }
 
-  // Trigger 4: Multiple Property Views
-  if (custom.customSierraPropertyViews) {
-    const views = parseInt(custom.customSierraPropertyViews) || 0;
+  // Trigger 4: Multiple Property Views (Sierra)
+  if (person.customSierraPropertyViews) {
+    const views = parseInt(person.customSierraPropertyViews) || 0;
     if (views >= 10) {
       triggers.push('High Property View Count');
     }
   }
 
-  // Trigger 5: Showing Requests
-  if (custom.customSierraShowingRequests) {
-    const showings = parseInt(custom.customSierraShowingRequests) || 0;
+  // Trigger 5: Showing Requests (Sierra)
+  if (person.customSierraShowingRequests) {
+    const showings = parseInt(person.customSierraShowingRequests) || 0;
     if (showings >= 1) {
       triggers.push('Showing Request');
     }
