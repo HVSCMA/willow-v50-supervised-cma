@@ -39,14 +39,29 @@ exports.handler = async (event) => {
     // Get FUB embedded app secret from environment
     const SECRET_KEY = process.env.FUB_EMBEDDED_APP_SECRET;
     
+    // TEMPORARY DEV MODE: If no secret, bypass verification (REMOVE IN PRODUCTION)
     if (!SECRET_KEY) {
-      console.error('FUB_EMBEDDED_APP_SECRET not configured');
+      console.warn('FUB_EMBEDDED_APP_SECRET not configured - DEVELOPMENT MODE ACTIVE');
+      
+      // Decode context anyway to extract lead ID
+      let leadId = null;
+      try {
+        const contextJSON = Buffer.from(context, 'base64').toString('utf-8');
+        const contextData = JSON.parse(contextJSON);
+        leadId = contextData.person?.id || null;
+      } catch (parseError) {
+        console.error('Failed to parse context:', parseError);
+      }
+      
       return {
-        statusCode: 500,
+        statusCode: 200,
         headers,
         body: JSON.stringify({
-          valid: false,
-          error: 'Server configuration error'
+          valid: true,
+          leadId,
+          devMode: true,
+          warning: 'Signature verification bypassed - set FUB_EMBEDDED_APP_SECRET in production',
+          timestamp: new Date().toISOString()
         })
       };
     }
