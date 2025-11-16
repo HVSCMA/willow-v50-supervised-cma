@@ -1,40 +1,14 @@
 [build]
+  command = "npm install --production"
   functions = "netlify/functions"
   publish = "public"
 
-[functions]
-  node_bundler = "esbuild"
+[build.environment]
+  CLOUDCMA_API_KEY = "742f4a46e1780904da090d721a9bae7b"
+  FUB_API_KEY = "fka_0oHt62NxmsExO6x69p08ix82zx8ii1hzrj"
+  ATTOM_API_KEY = "83d56a0076ca0aeefd240b3d397ce708"
 
-# FUB Embedded App - Allow iframe embedding from Follow Up Boss
-[[headers]]
-  for = "/embedded.html"
-  [headers.values]
-    Content-Security-Policy = "frame-ancestors 'self' https://*.followupboss.com"
-    X-Content-Type-Options = "nosniff"
-    Access-Control-Allow-Origin = "*"
-    # X-Frame-Options intentionally omitted for FUB iframe compatibility
-
-# Standalone Dashboard - Prevent iframe embedding
-[[headers]]
-  for = "/dashboard.html"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    Content-Security-Policy = "frame-ancestors 'none'"
-    X-Content-Type-Options = "nosniff"
-    Access-Control-Allow-Origin = "*"
-
-# All other pages
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Content-Type-Options = "nosniff"
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-    Access-Control-Allow-Headers = "*"
-
-[[headers]]
-  for = "/.netlify/functions/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-    Access-Control-Allow-Headers = "*"
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
