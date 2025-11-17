@@ -964,7 +964,7 @@
                   </div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 15px;">
                   <div>
                     <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Bedrooms</label>
                     <input type="number" id="cma-beds" min="0" placeholder="3" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px;" />
@@ -986,6 +986,21 @@
                       <option value="Multi-Family">Multi-Family</option>
                       <option value="Land">Land</option>
                     </select>
+                  </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
+                  <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">
+                      Center Value (Zillow × 1.024) 
+                      <span style="color: var(--fub-text-muted); font-size: 11px;">(Auto-calculated from Zestimate)</span>
+                    </label>
+                    <input type="number" id="cma-center-value" readonly placeholder="Auto-filled from Zillow" style="width: 100%; padding: 10px; border: 1px solid var(--fub-border); border-radius: 4px; font-size: 14px; background: #f5f5f5;" />
+                  </div>
+                  <div style="display: flex; align-items: flex-end;">
+                    <button type="button" onclick="window.willowApp.fetchZillowData()" style="width: 100%; padding: 10px; background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%); color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,102,204,0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                      🏡 Fetch Zillow Data
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1310,12 +1325,75 @@
         document.getElementById('cma-beds').value = '';
         document.getElementById('cma-baths').value = '';
         document.getElementById('cma-sqft').value = '';
+        document.getElementById('cma-center-value').value = '';
         document.getElementById('cma-lat').value = '';
         document.getElementById('cma-lon').value = '';
         document.getElementById('cma-title').value = '';
         document.getElementById('cma-notes').value = '';
         this.populateCMAForm();
         this.showToast('Form reset to behavioral defaults', 'success');
+      }
+
+      async fetchZillowData() {
+        const address = document.getElementById('cma-address')?.value;
+        if (!address) {
+          this.showToast('Please enter a property address first', 'error');
+          return;
+        }
+        
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Fetching Zillow...';
+        
+        try {
+          console.log('Fetching Zillow data for:', address);
+          
+          // Call zillow-zestimate backend function
+          const response = await fetch(`/.netlify/functions/zillow-zestimate?address=${encodeURIComponent(address)}`, {
+            method: 'GET'
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Backend returned ${response.status}`);
+          }
+          
+          const result = await response.json();
+          console.log('Zillow result:', result);
+          
+          if (!result.zestimate) {
+            throw new Error('No Zestimate data returned');
+          }
+          
+          // Calculate adjusted value (Zestimate × 1.024, rounded to nearest $5K)
+          const adjustedValue = Math.round((result.zestimate * 1.024) / 5000) * 5000;
+          
+          // Populate center value field
+          document.getElementById('cma-center-value').value = adjustedValue;
+          
+          // Also populate property details if available
+          if (result.propertyDetails) {
+            if (result.propertyDetails.bedrooms) {
+              document.getElementById('cma-beds').value = result.propertyDetails.bedrooms;
+            }
+            if (result.propertyDetails.bathrooms) {
+              document.getElementById('cma-baths').value = result.propertyDetails.bathrooms;
+            }
+            if (result.propertyDetails.sqft) {
+              document.getElementById('cma-sqft').value = result.propertyDetails.sqft;
+            }
+          }
+          
+          this.showToast(`Zillow data loaded! Adjusted value: $${adjustedValue.toLocaleString()}`, 'success');
+          
+        } catch (error) {
+          console.error('Zillow fetch error:', error);
+          this.showToast('Failed to fetch Zillow data: ' + error.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
       }
 
       async generateCMA() {
@@ -1336,36 +1414,48 @@
             beds: document.getElementById('cma-beds').value || '',
             baths: document.getElementById('cma-baths').value || '',
             sqft: document.getElementById('cma-sqft').value || '',
-            prop_type: document.getElementById('cma-prop-type').value || 'Residential',
-            min_listings: document.getElementById('cma-min-listings').value || '10',
-            radius: document.getElementById('cma-radius').value || '1.0',
-            months_back: document.getElementById('cma-months-back').value || '12',
+            propertyType: document.getElementById('cma-prop-type').value || 'Residential',
+            radius: parseFloat(document.getElementById('cma-radius').value || '1.0'),
+            daysBack: parseInt(document.getElementById('cma-months-back').value || '12') * 30,
+            comparableCount: parseInt(document.getElementById('cma-min-listings').value || '10'),
             title: document.getElementById('cma-title').value || `Market Analysis for ${address}`,
             notes: document.getElementById('cma-notes').value || '',
-            lat: document.getElementById('cma-lat').value || '',
-            lon: document.getElementById('cma-lon').value || '',
-            api_key: CLOUDCMA_API_KEY
+            centerValue: document.getElementById('cma-center-value')?.value || ''
           };
           
-          // Build CloudCMA API URL
-          const params = new URLSearchParams();
-          for (const [key, value] of Object.entries(cmaData)) {
-            if (value) params.append(key, value);
+          console.log('Calling cloudcma-generate backend with data:', cmaData);
+          
+          // Call our backend function (proper API integration)
+          const response = await fetch('/.netlify/functions/cloudcma-generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(cmaData)
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Backend returned ${response.status}`);
           }
           
-          const cmaURL = `${CLOUDCMA_BASE}/cma?${params.toString()}`;
-          console.log('CloudCMA API Call:', cmaURL);
+          const result = await response.json();
+          console.log('CloudCMA generation result:', result);
           
-          // Open CMA in new window (CloudCMA API returns redirect to CMA)
-          window.open(cmaURL, '_blank');
+          if (!result.cmaUrl) {
+            throw new Error('No CMA URL returned from backend');
+          }
+          
+          // Open CMA in new window
+          window.open(result.cmaUrl, '_blank');
           
           // Save CMA metadata to FUB custom fields
           await this.updateFUBCustomFields({
             customWILLOWCMADate: new Date().toISOString(),
-            customWILLOWCMALink: cmaURL,
+            customWILLOWCMALink: result.cmaUrl,
             customWILLOWCMAAddress: address,
-            customWILLOWCenterValue: '',
-            customWILLOWCloudCMAType: cmaData.prop_type,
+            customWILLOWCenterValue: cmaData.centerValue || '',
+            customWILLOWCloudCMAType: cmaData.propertyType,
             customWILLOWCloudCMACreated: new Date().toISOString()
           });
           
@@ -1373,7 +1463,7 @@
           await this.logFUBActivity({
             type: 'CMA_Generated',
             subject: `CMA Generated: ${address}`,
-            message: `Generated CMA for ${address} using WILLOW V50 Intelligence System. Behavioral Score: ${this.intelligence?.totalScore}/100 (${this.intelligence?.classification}).`
+            message: `Generated CMA for ${address} using WILLOW V50 Intelligence System. Behavioral Score: ${this.intelligence?.totalScore}/100 (${this.intelligence?.classification}). CMA Link: ${result.cmaUrl}`
           });
           
           this.showToast('CMA generated successfully! Opening in new window...', 'success');

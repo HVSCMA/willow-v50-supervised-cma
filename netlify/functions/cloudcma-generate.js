@@ -111,13 +111,14 @@ exports.handler = async (event, context) => {
     console.log('CloudCMA Response Status:', response.status);
     console.log('CloudCMA Edit URL:', cmaEditUrl);
 
-    // Return success with CMA URLs
+    // Return success with CMA URL (frontend expects 'cmaUrl' key)
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
         message: 'CMA generation initiated successfully',
+        cmaUrl: cmaEditUrl,  // Frontend expects this key
         cma: {
           editUrl: cmaEditUrl,
           parameters: {
